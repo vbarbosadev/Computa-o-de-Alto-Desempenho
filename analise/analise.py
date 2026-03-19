@@ -91,61 +91,83 @@ def analise_tarefa2():
         return
 
     df = pd.read_csv(csv)
-    print("\n=== Tarefa 2 — ILP: laços com e sem dependência ===")
+    print("\n=== Tarefa 2 — ILP: loop unrolling ===")
     print(df.to_string(index=False))
 
     otimizacoes = ["O0", "O2", "O3"]
+    lacos_ordem = ["laco_soma", "laco_unroll_2", "laco_unroll_4", "laco_unroll_8", "laco_unroll_12"]
+    labels_lacos = ["soma\n(base)", "unroll×2", "unroll×4", "unroll×8", "unroll×12"]
+
     df["otimizacao"] = pd.Categorical(df["otimizacao"], categories=otimizacoes, ordered=True)
+    df["laco"] = pd.Categorical(df["laco"], categories=lacos_ordem, ordered=True)
     df = df.sort_values(["otimizacao", "laco"])
 
-    laco2 = df[df["laco"] == "laco2"].set_index("otimizacao")["tempo"]
-    laco3 = df[df["laco"] == "laco3_2"].set_index("otimizacao")["tempo"]
+    cores_opt = {"O0": "tomato", "O2": "steelblue", "O3": "mediumseagreen"}
+    x = np.arange(len(lacos_ordem))
+    n_opt = len(otimizacoes)
+    width = 0.22
 
-    x = np.arange(len(otimizacoes))
-    width = 0.35
+    # ── Gráfico 3: Barras agrupadas — tempo por laço para cada otimização ────
+    fig, ax = plt.subplots(figsize=(11, 5))
 
-    # ── Gráfico 3: Barras agrupadas ──────────────────────────────────────────
-    fig, ax = plt.subplots(figsize=(8, 5))
-
-    bars2 = ax.bar(x - width / 2, laco2.reindex(otimizacoes), width, label="Laço 2 (com dependência)",    color="tomato")
-    bars3 = ax.bar(x + width / 2, laco3.reindex(otimizacoes), width, label="Laço 3 (sem dependência)", color="mediumseagreen")
-
-    # Escala log se a diferença for grande
-    max_t = df["tempo"].max()
-    min_t = df["tempo"].min()
-    if max_t / max(min_t, 1e-12) > 100:
-        ax.set_yscale("log")
-        ax.set_ylabel("Tempo (s) — escala log")
-    else:
-        ax.set_ylabel("Tempo (s)")
+    for i, opt in enumerate(otimizacoes):
+        tempos = (
+            df[df["otimizacao"] == opt]
+            .set_index("laco")["tempo"]
+            .reindex(lacos_ordem)
+        )
+        offset = (i - n_opt / 2 + 0.5) * width
+        bars = ax.bar(x + offset, tempos, width, label=f"-{opt}", color=cores_opt[opt])
+        for bar, val in zip(bars, tempos):
+            if not np.isnan(val):
+                ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.002,
+                        f"{val:.3f}", ha="center", va="bottom", fontsize=7)
 
     ax.set_xticks(x)
-    ax.set_xticklabels([f"-{o}" for o in otimizacoes])
-    ax.set_xlabel("Nível de otimização")
-    ax.set_title("ILP — Efeito das dependências e nível de otimização")
-    ax.legend()
+    ax.set_xticklabels(labels_lacos)
+    ax.set_xlabel("Variante do laço")
+    ax.set_ylabel("Tempo (s)")
+    ax.set_title("ILP — Loop Unrolling: tempo por variante e nível de otimização")
+    ax.legend(title="Otimização")
     ax.grid(True, axis="y", linestyle="--", alpha=0.5)
     plt.tight_layout()
     salvar(fig, "tarefa2_barras.png")
 
-    # ── Gráfico 4: Speedup por nível de otimização ───────────────────────────
-    speedup = laco2.reindex(otimizacoes) / laco3.reindex(otimizacoes)
+    # ── Gráfico 4: Speedup como linha — tendência conforme fator de unrolling ─
+    fig, ax = plt.subplots(figsize=(10, 5))
 
-    fig, ax = plt.subplots(figsize=(7, 4))
-    ax.bar([f"-{o}" for o in otimizacoes], speedup, color="mediumpurple")
-    ax.axhline(1.0, color="red", linestyle="--", linewidth=1.2, label="Speedup = 1")
+    unroll_fatores = [1, 2, 4, 8, 12]   # eixo X numérico para linha contínua
 
-    ax.set_xlabel("Nível de otimização")
-    ax.set_ylabel("Speedup (tempo_laco2 / tempo_laco3)")
-    ax.set_title("Ganho ao quebrar dependência de dados")
-    ax.legend()
+    for opt in otimizacoes:
+        grupo = df[df["otimizacao"] == opt].set_index("laco")["tempo"].reindex(lacos_ordem)
+        base = grupo["laco_soma"]
+        speedup = (base / grupo).values
+        ax.plot(unroll_fatores, speedup, marker="o", label=f"-{opt}", color=cores_opt[opt], linewidth=2)
+        for fator, val in zip(unroll_fatores, speedup):
+            if not np.isnan(val):
+                ax.annotate(f"{val:.2f}x", xy=(fator, val),
+                            xytext=(0, 6), textcoords="offset points",
+                            ha="center", fontsize=8, color=cores_opt[opt])
+
+    ax.axhline(1.0, color="black", linestyle="--", linewidth=1.2, label="Speedup = 1 (base)")
+    ax.set_xticks(unroll_fatores)
+    ax.set_xticklabels(["base\n(×1)", "×2", "×4", "×8", "×12"])
+    ax.set_xlabel("Fator de unrolling")
+    ax.set_ylabel("Speedup (tempo_soma / tempo_variante)")
+    ax.set_title("ILP — Speedup do loop unrolling em relação ao laço simples")
+    ax.legend(title="Otimização")
     ax.grid(True, axis="y", linestyle="--", alpha=0.5)
     plt.tight_layout()
     salvar(fig, "tarefa2_speedup.png")
 
-    print(f"\n  Speedup laco3 vs laco2:")
+    # Resumo
+    print()
     for opt in otimizacoes:
-        print(f"    -{opt}: {speedup.get(opt, float('nan')):.2f}x")
+        grupo = df[df["otimizacao"] == opt].set_index("laco")["tempo"].reindex(lacos_ordem)
+        base = grupo["laco_soma"]
+        melhor_laco = (base / grupo).idxmax()
+        melhor_sp = (base / grupo).max()
+        print(f"  -{opt}: melhor variante = {melhor_laco}  ({melhor_sp:.2f}x vs laco_soma)")
 
 
 # ─── TAREFA 3 ────────────────────────────────────────────────────────────────

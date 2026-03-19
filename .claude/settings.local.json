@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//mnt/c/Users/vinicius/Documents/developer/CAD/**)",
+      "Bash(python analise/analise.py)"
+    ]
+  }
+}
