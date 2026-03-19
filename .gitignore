@@ -1,0 +1,22 @@
+# Python environment
+analise/.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Compiled C binaries (sem extensao)
+Tarefa-01/coluna
+Tarefa-01/linha
+Tarefa-02/laco*_O*
+Tarefa-02/laco2_O*
+Tarefa-03/compare-pi
+Tarefa-04/compute_bound
+Tarefa-04/memory_bound
+
+# Arquivos objeto e saida
+*.o
+*.out
+*.exe
+
+# Dados gerados
+dados/
