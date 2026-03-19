@@ -13,7 +13,7 @@ gcc -O2 -fopenmp Tarefa-01/mult_por_coluna.c  -o Tarefa-01/coluna  -lm
 
 echo "N,tempo_linha,tempo_coluna" > dados/tarefa1.csv
 
-for N in 100 500 1000 2000 3000 4000 5000; do
+for N in 10 50 100 1000 5000 10000 30000 60000 100000; do
     t_linha=$(./Tarefa-01/linha  $N | cut -d',' -f2)
     t_col=$(./Tarefa-01/coluna $N | cut -d',' -f2)
     echo "$N,$t_linha,$t_col"
