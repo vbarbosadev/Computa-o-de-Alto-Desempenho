@@ -52,12 +52,18 @@ done
 
 # ─── TAREFA 3 ──────────────────────────────────────────────────────────────
 echo ""
-echo "=== Tarefa 3: Aproximacao de pi ==="
+echo "=== Tarefa 3: Aproximacao de pi — Leibniz ==="
 
-gcc -O2 -fopenmp Tarefa-03/compare-pi.c -o Tarefa-03/compare-pi -lm
+gcc -O2 -fopenmp Tarefa-03/leibniz_seq.c -o Tarefa-03/leibniz_seq -lm
+gcc -O2 -fopenmp Tarefa-03/leibniz_omp.c -o Tarefa-03/leibniz_omp -lm
 
-# linha com # e impressa no terminal mas nao entra no CSV
-./Tarefa-03/compare-pi | tee /dev/stderr | grep -v '^#' > dados/tarefa3.csv
+# Sequencial: iteracoes,segundos,pi_aprox,erro
+./Tarefa-03/leibniz_seq | grep -v '^#' > dados/tarefa3_seq.csv
+echo "  -> dados/tarefa3_seq.csv"
+
+# Paralelo: iteracoes,threads,segundos,pi_aprox,erro
+./Tarefa-03/leibniz_omp | grep -v '^#' > dados/tarefa3_omp.csv
+echo "  -> dados/tarefa3_omp.csv"
 
 echo ""
 echo "Dados salvos em dados/"

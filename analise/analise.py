@@ -99,7 +99,7 @@ def analise_tarefa2():
     df = df.sort_values(["otimizacao", "laco"])
 
     laco2 = df[df["laco"] == "laco2"].set_index("otimizacao")["tempo"]
-    laco3 = df[df["laco"] == "laco3"].set_index("otimizacao")["tempo"]
+    laco3 = df[df["laco"] == "laco3_2"].set_index("otimizacao")["tempo"]
 
     x = np.arange(len(otimizacoes))
     width = 0.35
@@ -151,50 +151,115 @@ def analise_tarefa2():
 # ─── TAREFA 3 ────────────────────────────────────────────────────────────────
 
 def analise_tarefa3():
-    csv = os.path.join(DADOS_DIR, "tarefa3.csv")
-    if not os.path.exists(csv):
-        print("[Tarefa 3] arquivo não encontrado, pulando.")
+    csv_seq = os.path.join(DADOS_DIR, "tarefa3_seq.csv")
+    csv_omp = os.path.join(DADOS_DIR, "tarefa3_omp.csv")
+
+    if not os.path.exists(csv_seq) or not os.path.exists(csv_omp):
+        print("[Tarefa 3] arquivos não encontrados, pulando.")
         return
 
-    df = pd.read_csv(csv)
+    seq = pd.read_csv(csv_seq)
+    omp = pd.read_csv(csv_omp)
 
-    # erro pode vir como string científica ("0.00e+00") — converter
-    df["erro"] = pd.to_numeric(df["erro"], errors="coerce")
-    # substituir zeros por valor mínimo representável para escala log
-    df["erro_plot"] = df["erro"].replace(0, 1e-16)
+    seq["erro"] = pd.to_numeric(seq["erro"], errors="coerce")
+    omp["erro"] = pd.to_numeric(omp["erro"], errors="coerce")
 
-    print("\n=== Tarefa 3 — Gauss-Legendre: convergência para π ===")
-    print(df[["iteracoes", "segundos", "pi_aprox", "erro"]].to_string(index=False))
+    print("\n=== Tarefa 3 — Leibniz: convergência para π ===")
+    print("\n-- Sequencial --")
+    print(seq[["iteracoes", "segundos", "pi_aprox", "erro"]].to_string(index=False))
+    print("\n-- Paralelo --")
+    print(omp[["iteracoes", "threads", "segundos", "pi_aprox", "erro"]].to_string(index=False))
 
-    # ── Gráfico 5: Erro × iterações ──────────────────────────────────────────
+    # ── Gráfico 5: Erro × iterações (sequencial, escala log/log) ─────────────
+    seq_plot = seq.copy()
+    seq_plot["erro_plot"] = seq_plot["erro"].replace(0, 1e-17)
+
     fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(seq_plot["iteracoes"], seq_plot["erro_plot"],
+            marker="o", color="darkorange", label="Erro absoluto")
+    ax.axhline(1e-7, color="blue", linestyle="--", linewidth=1, label="1e-7 (7 casas)")
+    ax.axhline(1e-15, color="green", linestyle="--", linewidth=1, label="Limite double (~1e-15)")
 
-    ax.plot(df["iteracoes"], df["erro_plot"], marker="o", color="darkorange", label="Erro absoluto")
-    ax.axhline(1e-15, color="blue", linestyle="--", linewidth=1.2, label="Limite precisão double (~1e-15)")
-
+    ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Número de iterações")
+    ax.set_xlabel("Número de termos (escala log)")
     ax.set_ylabel("Erro absoluto |π_aprox − π|  (escala log)")
-    ax.set_title("Gauss-Legendre — Convergência para π")
+    ax.set_title("Leibniz — Convergência para π (sequencial)")
     ax.legend()
     ax.grid(True, which="both", linestyle="--", alpha=0.4)
     plt.tight_layout()
     salvar(fig, "tarefa3_erro.png")
 
-    # ── Gráfico 6: Tempo × iterações ─────────────────────────────────────────
+    # ── Gráfico 6: Tempo × iterações (sequencial, escala log) ────────────────
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.bar(df["iteracoes"].astype(str), df["segundos"], color="cadetblue")
+    ax.plot(seq["iteracoes"], seq["segundos"],
+            marker="s", color="cadetblue", label="Tempo sequencial")
 
-    ax.set_xlabel("Número de iterações")
-    ax.set_ylabel("Tempo (s)")
-    ax.set_title("Gauss-Legendre — Tempo por número de iterações")
-    ax.grid(True, axis="y", linestyle="--", alpha=0.5)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Número de termos (escala log)")
+    ax.set_ylabel("Tempo (s)  (escala log)")
+    ax.set_title("Leibniz — Crescimento do tempo de execução (sequencial)")
+    ax.legend()
+    ax.grid(True, which="both", linestyle="--", alpha=0.4)
     plt.tight_layout()
     salvar(fig, "tarefa3_tempo.png")
 
-    convergiu = df[df["erro"] < 1e-15]
-    print(f"\n  Converge abaixo de 1e-15 a partir de: {convergiu['iteracoes'].min() if not convergiu.empty else 'nunca'} iterações")
-    print(f"  Tempo total acumulado: {df['segundos'].sum():.6f} s")
+    # ── Gráfico 7: Speedup × threads (paralelo) ───────────────────────────────
+    fig, ax = plt.subplots(figsize=(9, 5))
+    colors = plt.cm.tab10.colors
+
+    for idx, (n_it, grupo) in enumerate(omp.groupby("iteracoes")):
+        grupo = grupo.sort_values("threads")
+        t1 = grupo.loc[grupo["threads"] == 1, "segundos"].values
+        if len(t1) == 0:
+            continue
+        grupo = grupo.copy()
+        grupo["speedup"] = t1[0] / grupo["segundos"]
+        label = f"{n_it:,} termos"
+        ax.plot(grupo["threads"], grupo["speedup"],
+                marker="o", label=label, color=colors[idx % len(colors)])
+
+    max_threads = omp["threads"].max()
+    ax.plot([1, max_threads], [1, max_threads],
+            linestyle="--", color="gray", linewidth=1, label="Speedup ideal")
+
+    ax.set_xlabel("Número de threads")
+    ax.set_ylabel("Speedup (T₁ / Tₙ)")
+    ax.set_title("Leibniz — Speedup com OpenMP")
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.4)
+    plt.tight_layout()
+    salvar(fig, "tarefa3_speedup.png")
+
+    # ── Gráfico 8: Tempo × threads para cada carga (paralelo) ────────────────
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for idx, (n_it, grupo) in enumerate(omp.groupby("iteracoes")):
+        grupo = grupo.sort_values("threads")
+        label = f"{n_it:,} termos"
+        ax.plot(grupo["threads"], grupo["segundos"],
+                marker="s", label=label, color=colors[idx % len(colors)])
+
+    ax.set_xlabel("Número de threads")
+    ax.set_ylabel("Tempo (s)")
+    ax.set_title("Leibniz — Tempo de execução por número de threads")
+    ax.legend()
+    ax.grid(True, linestyle="--", alpha=0.4)
+    plt.tight_layout()
+    salvar(fig, "tarefa3_tempo_omp.png")
+
+    # Resumo
+    melhor = omp.loc[omp["segundos"].idxmin()]
+    print(f"\n  Melhor tempo paralelo: {melhor['segundos']:.4f}s"
+          f"  ({int(melhor['threads'])} threads, {int(melhor['iteracoes']):,} termos)")
+
+    for n_it, grupo in omp.groupby("iteracoes"):
+        t1 = grupo.loc[grupo["threads"] == 1, "segundos"].values
+        tmax = grupo.loc[grupo["threads"] == grupo["threads"].max(), "segundos"].values
+        if len(t1) and len(tmax):
+            print(f"  Speedup máximo ({n_it:,} termos): {t1[0]/tmax[0]:.2f}x"
+                  f"  ({int(grupo['threads'].max())} threads)")
 
 
 # ─── MAIN ────────────────────────────────────────────────────────────────────
