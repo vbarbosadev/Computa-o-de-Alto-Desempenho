@@ -27,27 +27,24 @@ echo "=== Tarefa 2: ILP — lacos 2 e 3 com -O0 / -O2 / -O3 ==="
 echo "laco,otimizacao,tempo" > dados/tarefa2.csv
 
 for OPT in O0 O2 O3; do
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e2.c     -o Tarefa-02/laco2_${OPT}    -lm
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3.c     -o Tarefa-02/laco3_2_${OPT}  -lm
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_4.c   -o Tarefa-02/laco3_4_${OPT}  -lm
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_8.c   -o Tarefa-02/laco3_8_${OPT}  -lm
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_12.c  -o Tarefa-02/laco3_12_${OPT} -lm
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_16.c  -o Tarefa-02/laco3_16_${OPT} -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_soma_simples.c -o Tarefa-02/laco_soma_${OPT}      -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_unroll_2.c     -o Tarefa-02/laco_unroll_2_${OPT}  -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_unroll_4.c     -o Tarefa-02/laco_unroll_4_${OPT}  -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_unroll_8.c     -o Tarefa-02/laco_unroll_8_${OPT}  -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_unroll_12.c    -o Tarefa-02/laco_unroll_12_${OPT} -lm
 
-    t2=$(./Tarefa-02/laco2_${OPT}    | head -1)
-    t3_2=$(./Tarefa-02/laco3_2_${OPT}  | head -1)
-    t3_4=$(./Tarefa-02/laco3_4_${OPT}  | head -1)
-    t3_8=$(./Tarefa-02/laco3_8_${OPT}  | head -1)
-    t3_12=$(./Tarefa-02/laco3_12_${OPT} | head -1)
-    t3_16=$(./Tarefa-02/laco3_16_${OPT} | head -1)
+    t_soma=$(./Tarefa-02/laco_soma_${OPT}      | head -1)
+    t_u2=$(./Tarefa-02/laco_unroll_2_${OPT}    | head -1)
+    t_u4=$(./Tarefa-02/laco_unroll_4_${OPT}    | head -1)
+    t_u8=$(./Tarefa-02/laco_unroll_8_${OPT}    | head -1)
+    t_u12=$(./Tarefa-02/laco_unroll_12_${OPT}  | head -1)
 
     for row in \
-        "laco2,$OPT,$t2" \
-        "laco3_2,$OPT,$t3_2" \
-        "laco3_4,$OPT,$t3_4" \
-        "laco3_8,$OPT,$t3_8" \
-        "laco3_12,$OPT,$t3_12" \
-        "laco3_16,$OPT,$t3_16"; do
+        "laco_soma,$OPT,$t_soma" \
+        "laco_unroll_2,$OPT,$t_u2" \
+        "laco_unroll_4,$OPT,$t_u4" \
+        "laco_unroll_8,$OPT,$t_u8" \
+        "laco_unroll_12,$OPT,$t_u12"; do
         echo "$row"
         echo "$row" >> dados/tarefa2.csv
     done
