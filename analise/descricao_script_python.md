@@ -36,20 +36,23 @@ Salvar os gráficos em `analise/graficos/`.
 ## Tarefa 2 — `dados/tarefa2.csv`
 
 **Colunas:** `laco, otimizacao, tempo`
-- `laco`: "laco2" (dependência) ou "laco3" (sem dependência)
+- `laco`: "laco2" (dependência) ou "laco3_N" (N acumuladores: 2, 4, 8, 12, 16)
 - `otimizacao`: "O0", "O2", "O3"
 
 ### Gráfico 3 — Tempo × Nível de otimização por laço
 - Tipo: barras agrupadas
 - Eixo X: nível de otimização (O0, O2, O3)
 - Eixo Y: tempo em segundos (escala logarítmica se a diferença for grande)
-- Duas barras por grupo: laço 2 (com dependência) e laço 3 (sem dependência)
+- Uma barra por laço: laco2, laco3_2, laco3_4, laco3_8, laco3_12, laco3_16
 - Título: "ILP — Efeito das dependências e nível de otimização"
 
-### Gráfico 4 — Speedup de laco3 em relação a laco2 por nível de otimização
-- Tipo: barras simples
-- Speedup = tempo_laco2 / tempo_laco3 para cada nível de otimização
-- Título: "Ganho ao quebrar dependência de dados"
+### Gráfico 4 — Speedup dos variantes do laço 3 em relação ao laço 2, por nível de otimização
+- Tipo: linhas com marcadores (uma linha por nível de otimização: O0, O2, O3)
+- Eixo X: número de acumuladores (2, 4, 8, 12, 16)
+- Eixo Y: speedup = tempo_laco2 / tempo_laco3_N
+- Linha horizontal tracejada em y=1 (referência)
+- Título: "Ganho ao aumentar o número de acumuladores"
+- Observação: esperado que o speedup sature em algum ponto (limite de registradores/pipeline)
 
 ---
 

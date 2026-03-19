@@ -1,0 +1,1 @@
+source analise/.venv/bin/activate

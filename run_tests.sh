@@ -27,16 +27,30 @@ echo "=== Tarefa 2: ILP — lacos 2 e 3 com -O0 / -O2 / -O3 ==="
 echo "laco,otimizacao,tempo" > dados/tarefa2.csv
 
 for OPT in O0 O2 O3; do
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e2.c -o Tarefa-02/laco2_${OPT} -lm
-    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3.c -o Tarefa-02/laco3_${OPT} -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_1e2.c     -o Tarefa-02/laco2_${OPT}    -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3.c     -o Tarefa-02/laco3_2_${OPT}  -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_4.c   -o Tarefa-02/laco3_4_${OPT}  -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_8.c   -o Tarefa-02/laco3_8_${OPT}  -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_12.c  -o Tarefa-02/laco3_12_${OPT} -lm
+    gcc -${OPT} -fopenmp Tarefa-02/laco_1e3_16.c  -o Tarefa-02/laco3_16_${OPT} -lm
 
-    t2=$(./Tarefa-02/laco2_${OPT} | head -1)
-    t3=$(./Tarefa-02/laco3_${OPT} | head -1)
+    t2=$(./Tarefa-02/laco2_${OPT}    | head -1)
+    t3_2=$(./Tarefa-02/laco3_2_${OPT}  | head -1)
+    t3_4=$(./Tarefa-02/laco3_4_${OPT}  | head -1)
+    t3_8=$(./Tarefa-02/laco3_8_${OPT}  | head -1)
+    t3_12=$(./Tarefa-02/laco3_12_${OPT} | head -1)
+    t3_16=$(./Tarefa-02/laco3_16_${OPT} | head -1)
 
-    echo "laco2,$OPT,$t2"
-    echo "laco3,$OPT,$t3"
-    echo "laco2,$OPT,$t2" >> dados/tarefa2.csv
-    echo "laco3,$OPT,$t3" >> dados/tarefa2.csv
+    for row in \
+        "laco2,$OPT,$t2" \
+        "laco3_2,$OPT,$t3_2" \
+        "laco3_4,$OPT,$t3_4" \
+        "laco3_8,$OPT,$t3_8" \
+        "laco3_12,$OPT,$t3_12" \
+        "laco3_16,$OPT,$t3_16"; do
+        echo "$row"
+        echo "$row" >> dados/tarefa2.csv
+    done
 done
 
 # ─── TAREFA 3 ──────────────────────────────────────────────────────────────
