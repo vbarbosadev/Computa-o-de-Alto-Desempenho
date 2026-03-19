@@ -59,7 +59,8 @@ echo "=== Tarefa 3: Aproximacao de pi ==="
 
 gcc -O2 -fopenmp Tarefa-03/compare-pi.c -o Tarefa-03/compare-pi -lm
 
-./Tarefa-03/compare-pi | tee dados/tarefa3.csv
+# linha com # e impressa no terminal mas nao entra no CSV
+./Tarefa-03/compare-pi | tee /dev/stderr | grep -v '^#' > dados/tarefa3.csv
 
 echo ""
 echo "Dados salvos em dados/"

@@ -30,13 +30,15 @@ void gauss_legendre(int it) {
 
     double erro = fabs(pi - M_PI);
     // output CSV: iteracoes,segundos,pi_aprox,erro
-    printf("%d,%.9f,%.15f,%.2e\n", it, end - start, pi, erro);
+    // %.17f = maximo de casas decimais uteis para um double (17 digitos significativos)
+    printf("%d,%.9f,%.17f,%.3e\n", it, end - start, pi, erro);
 }
 
 int main() {
     int iteracoes[] = {1, 2, 3, 4, 5, 10, 20, 50};
     int n = sizeof(iteracoes) / sizeof(iteracoes[0]);
 
+    printf("# M_PI (referencia): %.17f\n", M_PI);
     printf("iteracoes,segundos,pi_aprox,erro\n");
     for (int i = 0; i < n; i++)
         gauss_legendre(iteracoes[i]);
