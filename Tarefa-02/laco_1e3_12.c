@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <omp.h>
 
-#define N 10000008  // multiplo de 12
+#define N 100000008  // multiplo de 12
 
 static int A[N];
 

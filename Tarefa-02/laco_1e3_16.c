@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <omp.h>
 
-#define N 10000000  // multiplo de 16 (10000000 / 16 = 625000 exato)
+#define N 100000000  // multiplo de 16 (10000000 / 16 = 625000 exato)
 
 static int A[N];
 

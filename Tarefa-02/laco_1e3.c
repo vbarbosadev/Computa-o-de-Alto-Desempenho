@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <omp.h>
 
-#define N 10000000
+#define N 100000000
 
 static int A[N];
 
