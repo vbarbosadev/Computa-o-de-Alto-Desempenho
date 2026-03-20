@@ -38,6 +38,8 @@ Foram criadas duas versões que fazem exatamente o mesmo cálculo — multiplica
 
 ---
 
+<div style="page-break-before: always;"></div>
+
 ## Por que a diferença acontece
 
 ### Row-major: como C organiza matrizes na memória
@@ -83,6 +85,8 @@ Em N=8000, o speedup atinge o pico de **17.2×**. Em N=10000, cai levemente para
 Dois programas com o mesmo resultado matemático chegaram a ter **17× de diferença no tempo de execução** (pico em N=8000). A causa é unicamente a ordem de acesso à memória. Em C, respeitar o layout row-major — percorrer matrizes com o índice de coluna variando no loop mais interno — é essencial para manter a cache eficiente e evitar acessos desnecessários à RAM.
 
 ---
+
+<div style="page-break-before: always;"></div>
 
 ## Código
 

@@ -1,116 +1,235 @@
-# Tarefa 3 — Aproximação de π pelo algoritmo de Gauss-Legendre
+# Tarefa 3 — Série de Leibniz: sequencial e com threads
 
 ## Objetivo
 
-Implementar o algoritmo de Gauss-Legendre para aproximar π, variar o número de iterações e observar com que velocidade o resultado converge para o valor real.
+Implementar a série de Leibniz para aproximar π, observar como a precisão evolui com o aumento de iterações, e avaliar o ganho de tempo ao distribuir o trabalho entre múltiplas threads com OpenMP.
 
 ---
 
-## O que foi implementado
+## O que é a série de Leibniz
 
-O algoritmo de Gauss-Legendre calcula π por meio de uma sequência de operações matemáticas que se repete. A cada iteração, os valores internos ficam mais próximos de π, e o resultado final é calculado ao fim do laço.
+A série de Leibniz é uma soma infinita que converge para π/4:
 
-O programa foi testado com 1, 2, 3, 4, 5, 10, 20 e 50 iterações. Os resultados foram impressos com 17 casas decimais para que fosse possível comparar dígito por dígito com o valor real de π.
+```text
+π/4 = 1 - 1/3 + 1/5 - 1/7 + 1/9 - ...
+```
+
+Quanto mais termos somados, mais o resultado se aproxima de π. O problema é que a convergência é muito lenta — cada 10 vezes mais termos acrescenta apenas uma casa decimal correta.
 
 ---
 
-## Resultados
+## Versão sequencial
 
-Valor de referência de π: `3.14159265358979323...`
+O programa soma os termos um por um, do primeiro até o N-ésimo, e mede o tempo total.
+
+### Resultados
 
 | Iterações | Tempo (s) | π aproximado | Erro |
 | --- | --- | --- | --- |
-| 1 | 8.7 × 10⁻⁸ | 3.14057925052216858 | 1.013 × 10⁻³ |
-| 2 | 3.1 × 10⁻⁸ | 3.14159264621354284 | 7.376 × 10⁻⁹ |
-| 3 | 3.4 × 10⁻⁸ | 3.14159265358979400 | 8.882 × 10⁻¹⁶ |
-| 4 | 4.0 × 10⁻⁸ | 3.14159265358979400 | 8.882 × 10⁻¹⁶ |
-| 5 | 4.4 × 10⁻⁸ | 3.14159265358979400 | 8.882 × 10⁻¹⁶ |
-| 10 | 6.8 × 10⁻⁸ | 3.14159265358979400 | 8.882 × 10⁻¹⁶ |
-| 20 | 1.19 × 10⁻⁷ | 3.14159265358979400 | 8.882 × 10⁻¹⁶ |
-| 50 | 2.70 × 10⁻⁷ | 3.14159265358979400 | 8.882 × 10⁻¹⁶ |
+| 10 | 5.0 × 10⁻⁷ | 3.041839618929402 | 9.975 × 10⁻² |
+| 100 | 1.9 × 10⁻⁷ | 3.131592903558552 | 1.000 × 10⁻² |
+| 1.000 | 1.4 × 10⁻⁶ | 3.140592653839792 | 1.000 × 10⁻³ |
+| 10.000 | 1.5 × 10⁻⁵ | 3.141492653590043 | 1.000 × 10⁻⁴ |
+| 100.000 | 1.5 × 10⁻⁴ | 3.141582653589793 | 1.000 × 10⁻⁵ |
+| 1.000.000 | 1.4 × 10⁻³ | 3.141591653589793 | 1.000 × 10⁻⁶ |
+| 10.000.000 | 1.5 × 10⁻² | 3.141592553589793 | 1.000 × 10⁻⁷ |
+| 100.000.000 | 1.4 × 10⁻¹ | 3.141592643589794 | 1.000 × 10⁻⁸ |
+| 1.000.000.000 | 1.41 | 3.141592652589795 | 1.000 × 10⁻⁹ |
+| 5.000.000.000 | 7.33 | 3.141592653389802 | 2.000 × 10⁻¹⁰ |
 
-> Os dígitos em negrito marcam onde a aproximação começa a divergir de π real.
+### Análise
 
-![Convergência do erro por número de iterações](analise/graficos/tarefa3_erro.png)
-
-![Tempo de execução por número de iterações](analise/graficos/tarefa3_tempo.png)
-
----
-
-## Análise
-
-### A cada iteração, o dobro de casas decimais corretas
+O padrão é claro: **cada vez que o número de termos multiplica por 10, o erro divide por 10** — ou seja, ganha-se uma casa decimal correta. Isso é chamado de convergência linear.
 
 Comparando os resultados dígito a dígito com π real:
 
-```
-π real:  3.14159265358979323...
-iter 1:  3.14057925052216858...
-              ^--- erra aqui
-              apenas 2 casas decimais corretas
-
-π real:  3.14159265358979323...
-iter 2:  3.14159264621354284...
-                      ^--- erra aqui
-              7 casas decimais corretas  (+5 em relação à iteração 1)
-
-π real:  3.14159265358979323...
-iter 3:  3.14159265358979400...
-                              ^--- erra aqui
-              15 casas decimais corretas (+8 em relação à iteração 2)
+```text
+π real:    3.14159265358979323...
+10 iter:   3.04183961892940221...   → 1 casa correta
+100 iter:  3.13159290355855276...   → 2 casas corretas
+1000 iter: 3.14059265383979292...   → 3 casas corretas
+...
+5B iter:   3.14159265338980221...   → 9 casas corretas
 ```
 
-| Iteração | Casas corretas | Ganho |
+Para chegar a 9 casas decimais corretas foram necessárias **5 bilhões de iterações** e mais de **7 segundos** de execução. E cada casa decimal a mais exige 10 vezes mais trabalho.
+
+---
+
+## Com threads (OpenMP)
+
+A versão paralela divide as iterações entre múltiplas threads. Cada thread soma uma fatia do vetor de forma independente e os resultados são combinados no final. O número de iterações é o mesmo — apenas o trabalho é distribuído.
+
+### Resultados por número de threads
+
+#### 100 milhões de iterações
+
+| Threads | Tempo (s) | Speedup |
 | --- | --- | --- |
-| 1 | 2 | — |
-| 2 | 7 | +5 |
-| 3 | 15 | +8 |
+| 1 | 0.138 | 1.0× |
+| 2 | 0.116 | 1.2× |
+| 4 | 0.050 | 2.8× |
+| 8 | 0.044 | 3.1× |
 
-O padrão é claro: a cada iteração o número de casas corretas **aproximadamente dobra**. Isso é chamado de convergência quadrática — e é o que torna o algoritmo tão eficiente.
+#### 1 bilhão de iterações
 
-### Por que o resultado para de melhorar após a 3ª iteração
-
-A partir da 3ª iteração, o valor calculado não muda mais — todas as iterações seguintes retornam exatamente `3.14159265358979400`. Isso não significa que o algoritmo parou de funcionar. O que acontece é que o computador chegou no **limite de precisão do tipo de número que está usando**.
-
-Números decimais com muitas casas não podem ser guardados exatamente na memória. O tipo `double`, usado neste programa, consegue representar com precisão até cerca de 15–16 casas decimais. Depois disso, qualquer diferença entre os valores é tão pequena que o computador não consegue mais distinguir — é como tentar medir milímetros com uma régua marcada só em centímetros.
-
-Por isso, mesmo que matematicamente houvesse mais casas corretas a ganhar, o programa não consegue mostrá-las — o instrumento de medida chegou no seu limite.
-
-Comparando os últimos dígitos lado a lado:
-
-```
-π real:        3.14159265358979 323...
-calculado:     3.14159265358979 400...
-                               ^^^--- diferença aqui, mas é menor
-                                      do que o computador consegue representar
-```
-
-### O tempo cresce, mas a precisão não melhora
-
-O tempo aumenta linearmente com o número de iterações — cada iteração custa o mesmo tanto. Com 50 iterações o programa leva ~270 nanossegundos (0.00000027 segundos). Mas toda essa computação extra após a 3ª iteração não agrega nada em termos de precisão.
-
-| Trecho | Tempo (s) | Ganhou precisão? |
+| Threads | Tempo (s) | Speedup |
 | --- | --- | --- |
-| 1 → 2 iterações | ~3 × 10⁻⁸ | Sim — de 2 para 7 casas corretas |
-| 2 → 3 iterações | ~3 × 10⁻⁹ | Sim — de 7 para 15 casas corretas |
-| 3 → 50 iterações | ~2.4 × 10⁻⁷ | Não — resultado congelado |
+| 1 | 1.424 | 1.0× |
+| 2 | 0.829 | 1.7× |
+| 4 | 0.463 | 3.1× |
+| 8 | 0.333 | 4.3× |
 
-### Comparação com outros algoritmos
+#### 5 bilhões de iterações
 
-O Gauss-Legendre não é o único jeito de calcular π. Outros algoritmos mais simples existem, mas são muito menos eficientes:
+| Threads | Tempo (s) | Speedup |
+| --- | --- | --- |
+| 1 | 7.241 | 1.0× |
+| 2 | 4.031 | 1.8× |
+| 4 | 2.487 | 2.9× |
+| 8 | 1.643 | 4.4× |
 
-| Algoritmo | Iterações para ~15 casas corretas |
+### O que muda — e o que não muda
+
+**O tempo cai.** Com 8 threads e 5 bilhões de iterações, o tempo vai de 7.2s para 1.6s — quase 4.5× mais rápido.
+
+**A precisão não muda.** O erro permanece o mesmo para qualquer número de threads. Isso é esperado: as threads estão somando exatamente os mesmos termos, apenas em paralelo. Mais threads não significam mais termos — o algoritmo é o mesmo.
+
+### Por que o speedup não chega a 8× com 8 threads
+
+Com 8 threads, seria esperado um ganho de até 8× — mas o resultado fica em torno de 4×. Isso acontece por dois motivos:
+
+- **Overhead de coordenação**: ao final, cada thread precisa comunicar seu resultado parcial para que sejam somados. Esse passo é sequencial e consome tempo.
+- **Tamanho do trabalho**: para 100 milhões de iterações (que já rodam em 0.14s), o tempo de preparar as threads representa uma fração relevante do total. Por isso o speedup com 100M é menor do que com 5B — o trabalho é pequeno demais para aproveitar bem as threads.
+
+| Tamanho | Speedup com 8 threads |
 | --- | --- |
-| **Gauss-Legendre** | **3** |
-| Série de Machin | ~20 termos |
-| Série de Leibniz (1 − 1/3 + 1/5 − ...) | ~1.000.000.000.000.000 termos |
+| 100 milhões | 3.1× |
+| 1 bilhão | 4.3× |
+| 5 bilhões | 4.4× |
 
-A série de Leibniz é a mais intuitiva matematicamente, mas seria necessário somar **um quadrilhão de termos** para chegar ao mesmo resultado que o Gauss-Legendre alcança em 3 iterações.
+Quanto mais pesado o trabalho, melhor o aproveitamento das threads.
 
 ---
 
 ## Conclusão
 
-O algoritmo de Gauss-Legendre chega na precisão máxima possível com apenas **3 iterações**, em menos de 35 nanossegundos. Mais iterações só custam tempo sem trazer benefício.
+A série de Leibniz é um algoritmo de convergência lenta: cada casa decimal extra custa 10 vezes mais iterações. Com 5 bilhões de termos e 7 segundos de execução, o resultado ainda fica longe da precisão máxima que o computador consegue representar.
 
-Isso ilustra um princípio importante: a escolha do algoritmo impacta o resultado muito mais do que qualquer otimização de código. Um algoritmo com boa taxa de crescimento de precisão pode ser milhões de vezes mais eficiente do que um algoritmo mais simples fazendo a mesma tarefa.
+Paralelizar com OpenMP reduz o tempo de forma significativa — quase 4.5× com 8 threads no caso mais pesado — mas não altera em nada a precisão: o mesmo número de termos, somados mais rápido, chega ao mesmo resultado.
+
+---
+
+
+<div style="page-break-before: always;"></div>
+
+
+## Código
+
+### leibniz\_seq.c
+
+```c
+#include <stdio.h>
+#include <math.h>
+#include <omp.h>
+
+// Referencia com casas extras para long double (18-19 digitos significativos)
+#define M_PIl 3.14159265358979323846264338327950288L
+
+// Serie de Leibniz: pi/4 = 1 - 1/3 + 1/5 - 1/7 + ...
+// long double: ~18-19 digitos significativos vs ~15-16 do double
+void leibniz(long long n) {
+    double start = omp_get_wtime();
+
+    long double sum = 0.0L;
+    for (long long i = 0; i < n; i++) {
+        long double term = 1.0L / (2.0L * i + 1.0L);
+        sum += (i % 2 == 0) ? term : -term;
+    }
+
+    long double pi = 4.0L * sum;
+    double end = omp_get_wtime();
+
+    long double erro = fabsl(pi - M_PIl);
+    // output CSV: iteracoes,segundos,pi_aprox,erro
+    printf("%lld,%.9f,%.21Lf,%.3Le\n", n, end - start, pi, erro);
+}
+
+int main() {
+    long long iteracoes[] = {
+        10, 100, 1000, 10000, 100000,
+        1000000, 10000000, 100000000,
+        1000000000LL, 5000000000LL
+    };
+    int n = sizeof(iteracoes) / sizeof(iteracoes[0]);
+
+    printf("# M_PI (referencia): %.21Lf\n", M_PIl);
+    printf("iteracoes,segundos,pi_aprox,erro\n");
+    for (int i = 0; i < n; i++)
+        leibniz(iteracoes[i]);
+
+    return 0;
+}
+```
+
+<div style="page-break-before: always;"></div>
+
+### leibniz\_omp.c
+
+```c
+#include <stdio.h>
+#include <math.h>
+#include <omp.h>
+
+#define M_PIl 3.14159265358979323846264338327950288L
+
+// Serie de Leibniz paralelizada com OpenMP
+// long double: mais precisao; reduction garante soma correta entre threads
+void leibniz_omp(long long n, int num_threads) {
+    double start = omp_get_wtime();
+
+    long double sum = 0.0L;
+
+    #pragma omp parallel for reduction(+:sum) num_threads(num_threads)
+    for (long long i = 0; i < n; i++) {
+        long double term = 1.0L / (2.0L * i + 1.0L);
+        sum += (i % 2 == 0) ? term : -term;
+    }
+
+    long double pi = 4.0L * sum;
+    double end = omp_get_wtime();
+
+    long double erro = fabsl(pi - M_PIl);
+    // output CSV: iteracoes,threads,segundos,pi_aprox,erro
+    printf("%lld,%d,%.9f,%.21Lf,%.3Le\n", n, num_threads, end - start, pi, erro);
+}
+
+int main() {
+    long long iteracoes[] = {
+        100000000LL, 1000000000LL, 5000000000LL
+    };
+    int threads[] = {1, 2, 4, 8};
+
+    int ni = sizeof(iteracoes) / sizeof(iteracoes[0]);
+    int nt = sizeof(threads) / sizeof(threads[0]);
+
+    printf("# M_PI (referencia): %.21Lf\n", M_PIl);
+    printf("iteracoes,threads,segundos,pi_aprox,erro\n");
+    for (int i = 0; i < ni; i++)
+        for (int j = 0; j < nt; j++)
+            leibniz_omp(iteracoes[i], threads[j]);
+
+    return 0;
+}
+```
+<div style="page-break-before: always;"></div>
+
+### Compilação e execução
+
+```bash
+gcc -O2 -fopenmp leibniz_seq.c -o leibniz_seq -lm
+gcc -O2 -fopenmp leibniz_omp.c -o leibniz_omp -lm
+
+./leibniz_seq
+./leibniz_omp
+```
