@@ -49,7 +49,7 @@ def compile_programs():
     cmds = [
         (["gcc", "-O2", "-fopenmp", str(MEMORY_SRC), "-o", str(MEMORY_BIN)],
          "memory_bound"),
-        (["gcc", "-O2", "-fopenmp", "-lm", str(COMPUTE_SRC), "-o", str(COMPUTE_BIN)],
+        (["gcc", "-O2", "-fopenmp", str(COMPUTE_SRC), "-o", str(COMPUTE_BIN), "-lm"],
          "compute_bound"),
     ]
     for cmd, name in cmds:
