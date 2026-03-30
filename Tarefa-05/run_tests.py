@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 def compile_code():
     print("Compilando arquivos C...")
     # Atenção: usa gcc. Se for rodar no windows, talvez você precise configurar, mas no Linux/WSL isso vai direto.
-    subprocess.run(["gcc", "-o", "seq", "primo_sequencial.c"], check=True)
+    subprocess.run(["gcc", "-o", "seq", "primo_sequencial.c", "-fopenmp"], check=True)
     subprocess.run(["gcc", "-o", "par", "primos_parallel.c", "-fopenmp"], check=True)
     print("Compilação concluída com sucesso.\n")
 
