@@ -10,7 +10,7 @@ int is_prime(long int n) {
     return 1;
 }
 
-#define N 100000000
+#define N 10000000
 
 int main() {
 
@@ -20,7 +20,6 @@ int main() {
     #pragma omp parallel for
     for (int i = 2; i <= N; i++) {
         if (is_prime(i)) {
-            #pragma omp atomic
             count++;
         }
     }

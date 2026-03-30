@@ -10,7 +10,7 @@ int is_prime(long int n) {
     return 1;
 }
 
-#define N 1000000
+#define N 10000000
 
 int main() {
 
