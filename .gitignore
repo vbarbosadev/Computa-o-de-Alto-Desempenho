@@ -1,4 +1,5 @@
 # Python environment
+*/.venv/
 analise/.venv/
 __pycache__/
 *.pyc
