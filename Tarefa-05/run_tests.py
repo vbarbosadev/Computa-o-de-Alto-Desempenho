@@ -71,39 +71,53 @@ def main():
     print()
 
     # --- Grafico de tempos ---
-    labels = list(results.keys())
-    means  = [statistics.mean(d["times"]) for d in results.values()]
+    lbl_seq = "Sequencial"
+    lbl_rc  = "Paralelo (Race Condition)"
+    lbl_at  = "Paralelo (Atomic)"
+
+    mean_seq = statistics.mean(results[lbl_seq]["times"])
+    mean_rc  = statistics.mean(results[lbl_rc]["times"])
+    mean_at  = statistics.mean(results[lbl_at]["times"])
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+    def bar_comparison(ax, label_a, mean_a, color_a, label_b, mean_b, color_b, title):
+        bars = ax.bar([label_a, label_b], [mean_a, mean_b], color=[color_a, color_b])
+        ax.set_ylabel("Tempo Medio de Execucao (segundos)")
+        ax.set_title(title)
+        for bar in bars:
+            yval = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    yval + yval * 0.02,
+                    f"{yval:.4f}s", ha="center", va="bottom", fontweight="bold")
+        speedup = mean_a / mean_b if mean_b < mean_a else mean_b / mean_a
+        faster  = label_b if mean_b < mean_a else label_a
+        ax.text(0.5, 0.85, f"Speedup: {speedup:.2f}x\n({faster} mais rapido)",
+                transform=ax.transAxes, ha="center", fontsize=10,
+                bbox=dict(facecolor="white", alpha=0.7))
+
+    # Subplot 1: Sequencial vs Race Condition
+    bar_comparison(axes[0],
+                   lbl_seq, mean_seq, "#3498db",
+                   lbl_rc,  mean_rc,  "#e74c3c",
+                   f"Sequencial vs Race Condition\n(Media de {runs} execucoes)")
+
+    # Subplot 2: Paralelo Atomic vs Race Condition
+    bar_comparison(axes[1],
+                   lbl_rc, mean_rc, "#e74c3c",
+                   lbl_at, mean_at, "#2ecc71",
+                   f"Race Condition vs Atomic\n(Media de {runs} execucoes)")
+
+    # Subplot 3: contagem de primos por rodada
     colors = ["#3498db", "#e74c3c", "#2ecc71"]
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-
-    # Subplot 1: tempo medio
-    bars = axes[0].bar(labels, means, color=colors)
-    axes[0].set_ylabel("Tempo Medio de Execucao (segundos)")
-    axes[0].set_title(f"Comparacao de Desempenho (Media de {runs} execucoes)")
-    for bar in bars:
-        yval = bar.get_height()
-        axes[0].text(bar.get_x() + bar.get_width() / 2,
-                     yval + yval * 0.02,
-                     f"{yval:.4f}s", ha="center", va="bottom", fontweight="bold")
-
-    seq_mean = means[0]
-    for idx in range(1, len(means)):
-        speedup = seq_mean / means[idx]
-        axes[0].text(idx, means[idx] * 0.5,
-                     f"Speedup:\n{speedup:.2f}x",
-                     ha="center", va="center", fontsize=10,
-                     bbox=dict(facecolor="white", alpha=0.6))
-
-    # Subplot 2: contagem de primos por rodada
     for (label, data), color in zip(results.items(), colors):
-        axes[1].plot(range(1, runs + 1), data["counts"],
+        axes[2].plot(range(1, runs + 1), data["counts"],
                      marker="o", label=label, color=color)
-    axes[1].set_xlabel("Rodada")
-    axes[1].set_ylabel("Primos encontrados")
-    axes[1].set_title("Contagem de Primos por Rodada")
-    axes[1].legend()
-    axes[1].yaxis.get_major_formatter().set_useOffset(False)
+    axes[2].set_xlabel("Rodada")
+    axes[2].set_ylabel("Primos encontrados")
+    axes[2].set_title("Contagem de Primos por Rodada")
+    axes[2].legend(fontsize=8)
+    axes[2].yaxis.get_major_formatter().set_useOffset(False)
 
     plt.tight_layout()
     plt.savefig("comparacao_tempo.png", format="png", dpi=300)
