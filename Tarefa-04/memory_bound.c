@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <omp.h>
 
-#define N 100000000  /* 100M doubles = ~800 MB por array, 3 arrays => ~2.4 GB de trafego */
+#define N 100000000  
 
 int main(int argc, char *argv[]) {
     int num_threads = 1;
@@ -20,7 +20,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* inicializacao fora da medicao */
     #pragma omp parallel for
     for (long i = 0; i < N; i++) {
         A[i] = 1.0;
@@ -36,12 +35,10 @@ int main(int argc, char *argv[]) {
 
     double elapsed = omp_get_wtime() - start;
 
-    /* bytes lidos/escritos: A(leitura) + B(leitura) + C(escrita) = 3 * N * 8 bytes */
-    double bandwidth_gbs = (3.0 * N * sizeof(double)) / elapsed / 1e9;
 
     int actual_threads = omp_get_max_threads();
-    printf("RESULT threads=%d time=%.6f bandwidth_gbs=%.3f\n",
-           actual_threads, elapsed, bandwidth_gbs);
+    printf("RESULT threads=%d time=%.6f\n",
+           actual_threads, elapsed);
 
     free(A); free(B); free(C);
     return 0;

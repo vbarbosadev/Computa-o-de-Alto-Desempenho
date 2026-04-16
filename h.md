@@ -1,3 +1,5 @@
+python3 -m venv venv
+
 source analise/.venv/bin/activate
 
  python analise/analise.py

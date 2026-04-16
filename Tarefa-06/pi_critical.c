@@ -1,61 +1,66 @@
+/*
+ * Tarefa 6 - Estimativa estocastica de PI com #pragma omp critical
+ *
+ * Corrige a condicao de corrida usando #pragma omp critical para proteger
+ * o acesso a variavel compartilhada 'count'. A regiao critica garante que
+ * apenas uma thread por vez executa count++.
+ *
+ * Usa rand_r() com seed privada por thread para evitar problema de thread-safety.
+ *
+ * Nota: critical serializa o acesso, reduzindo o paralelismo.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_critical pi_critical.c -lm
+ * Executar: ./pi_critical [N]
+ */
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <math.h>
 #include <omp.h>
 
-#define M_PIl 3.14159265358979323846264338327950288L
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
+int main(int argc, char *argv[]) {
+    int N = 10000000;
+    if (argc > 1) N = atoi(argv[1]);
 
-#define LINE "+-----------+----------+----------------+----------------------------------+-------------+"
-#define HEADER "| Iteracoes |  Threads |   Tempo (s)    |             PI aprox             |    Erro     |"
+    int count = 0;
+    int threads_used;
 
-void leibniz_omp(long long n, int num_threads) {
-    double start = omp_get_wtime();
+    double t0 = omp_get_wtime();
 
-    long double sum = 0.0L;
+    #pragma omp parallel
+    {
+        unsigned int seed = time(NULL) ^ omp_get_thread_num();
+        double x, y;
 
-    #pragma omp parallel for num_threads(num_threads)
-    for (long long i = 0; i < n; i++) {
-        long double term = (i % 2 == 0) ? 1.0L / (2.0L * i + 1.0L) : -1.0L / (2.0L * i + 1.0L);
-        #pragma omp critical
-        sum += term;
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for
+        for (int i = 0; i < N; i++) {
+            x = (double)rand_r(&seed) / RAND_MAX;
+            y = (double)rand_r(&seed) / RAND_MAX;
+            if (x * x + y * y <= 1.0) {
+                #pragma omp critical
+                {
+                    count++;
+                }
+            }
+        }
     }
 
-    long double pi = 4.0L * sum;
-    double end = omp_get_wtime();
-    double elapsed = end - start;
+    double t1 = omp_get_wtime();
+    double elapsed = t1 - t0;
+    double pi = 4.0 * count / N;
+    double error = fabs(pi - M_PI);
 
-    long double erro = fabsl(pi - M_PIl);
-
-    /* linha PI correto (referencia) */
-    printf("|           |          |                | %.21Lf (ref)  |             |\n", M_PIl);
-
-    /* linha PI encontrado com marcador de diferenca */
-    printf("|           |          |                | %.21Lf        |             |\n", pi);
-
-    /* linha de dados principal */
-    printf("| %9lld | %8d | %14.9f | (acima)                   | %11.3Le |\n",
-           n, num_threads, elapsed, erro);
-
-    printf("%s\n", LINE);
-}
-
-int main() {
-    long long iteracoes[] = {
-        100000000LL
-    };
-    int threads[] = {1, 2, 4, 8};
-
-    int ni = sizeof(iteracoes) / sizeof(iteracoes[0]);
-    int nt = sizeof(threads) / sizeof(threads[0]);
-
-    printf("\n  omp critical -- Leibniz-Madhava para PI\n\n");
-    printf("%s\n", LINE);
-    printf("%s\n", HEADER);
-    printf("%s\n", LINE);
-
-    for (int i = 0; i < ni; i++)
-        for (int j = 0; j < nt; j++)
-            leibniz_omp(iteracoes[i], threads[j]);
+    printf("CONFIG program=critical n=%d threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%d total=%d error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
 
     return 0;
 }

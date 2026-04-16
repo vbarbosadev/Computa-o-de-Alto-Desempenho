@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
     double start = omp_get_wtime();
 
-    #pragma omp parallel for schedule(static)
+    #pragma omp parallel for
     for (int i = 0; i < N; i++) {
         double temp = (double)i;
         for (int j = 0; j < INNER; j++) {
@@ -32,7 +32,6 @@ int main(int argc, char *argv[]) {
 
     double elapsed = omp_get_wtime() - start;
 
-    /* operacoes: N * INNER * 2 (sin + cos) = 1e9 ops => GFLOPS aproximado */
     double gflops = ((double)N * INNER * 2.0) / elapsed / 1e9;
 
     int actual_threads = omp_get_max_threads();
