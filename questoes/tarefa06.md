@@ -6,11 +6,13 @@ Implemente em C a estimativa estocástica de π. Paralelize com
 
 #pragma omp parallel for 
 
-e explique o resultado incorreto. Corrija a condição de corrida utilizando o 
+e explique o resultado incorreto. 
+
+Corrija a condição de corrida utilizando o:
 
 #pragma omp critical 
 
-e reestruturando com 
+e reestruturando com:
 
 #pragma omp parallel 
 
