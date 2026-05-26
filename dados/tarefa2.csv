@@ -1,0 +1,16 @@
+laco,otimizacao,tempo
+laco_soma,O0,0.234312
+laco_unroll_2,O0,0.127446
+laco_unroll_4,O0,0.067994
+laco_unroll_8,O0,0.068456
+laco_unroll_12,O0,0.068058
+laco_soma,O2,0.032656
+laco_unroll_2,O2,0.034589
+laco_unroll_4,O2,0.035311
+laco_unroll_8,O2,0.026039
+laco_unroll_12,O2,0.024314
+laco_soma,O3,0.026393
+laco_unroll_2,O3,0.027375
+laco_unroll_4,O3,0.025408
+laco_unroll_8,O3,0.024572
+laco_unroll_12,O3,0.041441

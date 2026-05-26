@@ -1,0 +1,104 @@
+{
+  "system": {
+    "os": "Linux",
+    "os_version": "#1 SMP PREEMPT_DYNAMIC Thu Jun  5 18:30:46 UTC 2025",
+    "machine": "x86_64",
+    "cpu_threads": 12,
+    "timestamp": "20260326_085412",
+    "cpu_model": "13th Gen Intel(R) Core(TM) i5-13420H"
+  },
+  "memory_bound": [
+    {
+      "threads": 1,
+      "time": 0.99501,
+      "bandwidth_gbs": 2.412,
+      "time_min": 0.302171,
+      "time_max": 2.956745,
+      "speedup": 1.0,
+      "efficiency_pct": 100.0
+    },
+    {
+      "threads": 2,
+      "time": 0.2857,
+      "bandwidth_gbs": 8.4,
+      "time_min": 0.207388,
+      "time_max": 0.526247,
+      "speedup": 3.4827,
+      "efficiency_pct": 174.14
+    },
+    {
+      "threads": 4,
+      "time": 0.158001,
+      "bandwidth_gbs": 15.19,
+      "time_min": 0.119513,
+      "time_max": 0.190873,
+      "speedup": 6.2975,
+      "efficiency_pct": 157.44
+    },
+    {
+      "threads": 8,
+      "time": 0.092244,
+      "bandwidth_gbs": 26.018,
+      "time_min": 0.091984,
+      "time_max": 0.140486,
+      "speedup": 10.7867,
+      "efficiency_pct": 134.83
+    },
+    {
+      "threads": 12,
+      "time": 0.106099,
+      "bandwidth_gbs": 22.62,
+      "time_min": 0.100062,
+      "time_max": 0.164474,
+      "speedup": 9.3781,
+      "efficiency_pct": 78.15
+    }
+  ],
+  "compute_bound": [
+    {
+      "threads": 1,
+      "time": 7.018544,
+      "gflops": 0.142,
+      "time_min": 6.895803,
+      "time_max": 7.128695,
+      "speedup": 1.0,
+      "efficiency_pct": 100.0
+    },
+    {
+      "threads": 2,
+      "time": 3.495568,
+      "gflops": 0.286,
+      "time_min": 3.456265,
+      "time_max": 3.650561,
+      "speedup": 2.0078,
+      "efficiency_pct": 100.39
+    },
+    {
+      "threads": 4,
+      "time": 1.884831,
+      "gflops": 0.531,
+      "time_min": 1.855299,
+      "time_max": 1.947749,
+      "speedup": 3.7237,
+      "efficiency_pct": 93.09
+    },
+    {
+      "threads": 8,
+      "time": 1.251774,
+      "gflops": 0.799,
+      "time_min": 1.240896,
+      "time_max": 1.276955,
+      "speedup": 5.6069,
+      "efficiency_pct": 70.09
+    },
+    {
+      "threads": 12,
+      "time": 1.296457,
+      "gflops": 0.771,
+      "time_min": 1.259216,
+      "time_max": 1.302423,
+      "speedup": 5.4136,
+      "efficiency_pct": 45.11
+    }
+  ]
+}

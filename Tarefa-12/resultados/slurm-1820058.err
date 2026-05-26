@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "coletar_npad.py", line 291, in <module>
+    main()
+  File "coletar_npad.py", line 287, in main
+    collect(args)
+  File "coletar_npad.py", line 169, in collect
+    write_csv(rows)
+  File "coletar_npad.py", line 209, in write_csv
+    writer.writerows(rows)
+  File "/usr/lib64/python3.6/csv.py", line 158, in writerows
+    return self.writer.writerows(map(self._dict_to_list, rowdicts))
+  File "/usr/lib64/python3.6/csv.py", line 151, in _dict_to_list
+    + ", ".join([repr(x) for x in wrong_fields]))
+ValueError: dict contains fields not in fieldnames: 'nu', 'u0', 'initial_min', 'dt', 'final_min', 'init'
