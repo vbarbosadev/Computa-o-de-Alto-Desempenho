@@ -1,0 +1,22 @@
+LIBRARY pthreadGC-3.dll
+EXPORTS
+pthread_attr_destroy
+pthread_attr_getstacksize
+pthread_attr_init
+pthread_attr_setdetachstate
+pthread_attr_setstacksize
+pthread_create
+pthread_exit
+pthread_key_create
+pthread_key_delete
+pthread_mutex_destroy
+pthread_mutex_init
+pthread_mutex_lock
+pthread_mutex_unlock
+pthread_once
+pthread_setspecific
+sem_destroy
+sem_init
+sem_post
+sem_trywait
+sem_wait

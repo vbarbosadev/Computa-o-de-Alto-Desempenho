@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>relatorio_tarefa14.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> or <div class="page"></div> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="tarefa-14---comunicacao-mpi">Tarefa 14 - Comunicacao MPI</h1>
+<h2 id="objetivo">Objetivo</h2>
+<p>Implementar quatro benchmarks MPI com exatamente dois processos. O processo 0 envia
+uma mensagem ao processo 1 e o processo 1 devolve imediatamente a mesma mensagem. O
+tempo e medido com <code>MPI_Wtime</code> durante varias trocas consecutivas.</p>
+<h2 id="implementacoes">Implementacoes</h2>
+<ul>
+<li><code>MPI_Send</code>: envio bloqueante padrao. A chamada pode completar quando a mensagem foi
+copiada para um buffer interno do MPI ou quando o recebimento correspondente avancou.</li>
+<li><code>MPI_Bsend</code>: envio bloqueante com buffer anexado pelo usuario por <code>MPI_Buffer_attach</code>.
+A chamada depende de haver espaco no buffer fornecido para armazenar a mensagem.</li>
+<li><code>MPI_Rsend</code>: envio em modo ready. Ele so e correto se o recebimento correspondente
+ja tiver sido iniciado. Nesta versao introdutoria, foram usadas mensagens simples
+de controle com <code>MPI_Send</code> e <code>MPI_Recv</code> para indicar que o processo receptor esta
+pronto para a troca.</li>
+<li><code>MPI_Ssend</code>: envio bloqueante sincrono. A chamada so completa quando o processo
+receptor iniciou o recebimento correspondente, expondo melhor o custo de sincronizacao.</li>
+</ul>
+<p>Todos os programas usam <code>MPI_Recv</code> para receber a mensagem de ida e a resposta. O
+tempo e medido no processo 0, que participa de todas as trocas completas.</p>
+<h2 id="configuracao">Configuracao</h2>
+<ul>
+<li>Ambiente: maquina local, com os dois processos MPI no mesmo host</li>
+<li>Processadores logicos visiveis: <code>28</code></li>
+<li>Compilacao: <code>mpicc -O3 -Wall -Wextra</code></li>
+<li>Processos MPI: <code>2</code></li>
+<li>Tamanhos testados: <code>8, 16, 32, 64, 128, 256, 512, 1024, 4096, 16384, 65536, 262144, 1048576 bytes</code></li>
+<li>Repeticoes por tamanho e funcao: <code>3</code></li>
+<li>Metrica principal: tempo medio de ida e volta por mensagem</li>
+<li>Latencia estimada: metade do tempo medio de ida e volta</li>
+<li>Largura de banda efetiva: bytes enviados na ida e na volta divididos pelo tempo total</li>
+</ul>
+<p>O CSV final tem <code>157</code> linhas: <code>156</code> medicoes mais o cabecalho. Isso corresponde a
+<code>4</code> funcoes MPI, <code>13</code> tamanhos de mensagem e <code>3</code> rodadas por configuracao.</p>
+<p>O codigo foi mantido propositalmente simples, usando comunicacao ponto a ponto:
+<code>MPI_Send</code>, <code>MPI_Bsend</code>, <code>MPI_Rsend</code>, <code>MPI_Ssend</code>, <code>MPI_Recv</code> e <code>MPI_Wtime</code>. Nao foram
+usadas rotinas coletivas.</p>
+<h2 id="resultados">Resultados</h2>
+<table>
+<thead>
+<tr>
+<th>Funcao</th>
+<th style="text-align:right">Bytes</th>
+<th style="text-align:right">Iteracoes</th>
+<th style="text-align:right">Rodadas</th>
+<th style="text-align:right">Ida e volta medio (us)</th>
+<th style="text-align:right">Latencia estimada (us)</th>
+<th style="text-align:right">Banda efetiva (MiB/s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.326</td>
+<td style="text-align:right">0.163</td>
+<td style="text-align:right">46.74</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">16</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.433</td>
+<td style="text-align:right">0.216</td>
+<td style="text-align:right">70.54</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">32</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.429</td>
+<td style="text-align:right">0.214</td>
+<td style="text-align:right">142.34</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">64</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.420</td>
+<td style="text-align:right">0.210</td>
+<td style="text-align:right">290.34</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">128</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.473</td>
+<td style="text-align:right">0.236</td>
+<td style="text-align:right">516.44</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">256</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.489</td>
+<td style="text-align:right">0.244</td>
+<td style="text-align:right">998.90</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">512</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.556</td>
+<td style="text-align:right">0.278</td>
+<td style="text-align:right">1755.87</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">1024</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.647</td>
+<td style="text-align:right">0.324</td>
+<td style="text-align:right">3018.86</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">4096</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">1.719</td>
+<td style="text-align:right">0.860</td>
+<td style="text-align:right">4544.50</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">16384</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">4.482</td>
+<td style="text-align:right">2.241</td>
+<td style="text-align:right">6972.26</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">65536</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">12.581</td>
+<td style="text-align:right">6.290</td>
+<td style="text-align:right">9935.69</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">262144</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">32.438</td>
+<td style="text-align:right">16.219</td>
+<td style="text-align:right">15414.01</td>
+</tr>
+<tr>
+<td>MPI_Bsend</td>
+<td style="text-align:right">1048576</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">129.943</td>
+<td style="text-align:right">64.972</td>
+<td style="text-align:right">15393.92</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.486</td>
+<td style="text-align:right">0.243</td>
+<td style="text-align:right">31.40</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">16</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.495</td>
+<td style="text-align:right">0.248</td>
+<td style="text-align:right">61.60</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">32</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.495</td>
+<td style="text-align:right">0.247</td>
+<td style="text-align:right">123.40</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">64</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.504</td>
+<td style="text-align:right">0.252</td>
+<td style="text-align:right">242.49</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">128</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.566</td>
+<td style="text-align:right">0.283</td>
+<td style="text-align:right">431.64</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">256</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.597</td>
+<td style="text-align:right">0.299</td>
+<td style="text-align:right">818.03</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">512</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">1.034</td>
+<td style="text-align:right">0.517</td>
+<td style="text-align:right">944.61</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">1024</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">1.129</td>
+<td style="text-align:right">0.564</td>
+<td style="text-align:right">1731.24</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">4096</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">2.811</td>
+<td style="text-align:right">1.405</td>
+<td style="text-align:right">2779.32</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">16384</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">5.331</td>
+<td style="text-align:right">2.666</td>
+<td style="text-align:right">5861.97</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">65536</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">14.421</td>
+<td style="text-align:right">7.211</td>
+<td style="text-align:right">8684.41</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">262144</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">29.236</td>
+<td style="text-align:right">14.618</td>
+<td style="text-align:right">17103.04</td>
+</tr>
+<tr>
+<td>MPI_Rsend</td>
+<td style="text-align:right">1048576</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">103.874</td>
+<td style="text-align:right">51.937</td>
+<td style="text-align:right">19254.26</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.318</td>
+<td style="text-align:right">0.159</td>
+<td style="text-align:right">48.05</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">16</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.424</td>
+<td style="text-align:right">0.212</td>
+<td style="text-align:right">71.93</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">32</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.425</td>
+<td style="text-align:right">0.212</td>
+<td style="text-align:right">143.69</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">64</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.413</td>
+<td style="text-align:right">0.206</td>
+<td style="text-align:right">295.94</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">128</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.462</td>
+<td style="text-align:right">0.231</td>
+<td style="text-align:right">528.66</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">256</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.482</td>
+<td style="text-align:right">0.241</td>
+<td style="text-align:right">1013.54</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">512</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.571</td>
+<td style="text-align:right">0.286</td>
+<td style="text-align:right">1717.56</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">1024</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.660</td>
+<td style="text-align:right">0.330</td>
+<td style="text-align:right">2963.03</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">4096</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">2.350</td>
+<td style="text-align:right">1.175</td>
+<td style="text-align:right">3324.09</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">16384</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">4.815</td>
+<td style="text-align:right">2.407</td>
+<td style="text-align:right">6490.82</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">65536</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">13.862</td>
+<td style="text-align:right">6.931</td>
+<td style="text-align:right">9018.52</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">262144</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">28.862</td>
+<td style="text-align:right">14.431</td>
+<td style="text-align:right">17324.35</td>
+</tr>
+<tr>
+<td>MPI_Send</td>
+<td style="text-align:right">1048576</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">103.545</td>
+<td style="text-align:right">51.772</td>
+<td style="text-align:right">19315.39</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">8</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.660</td>
+<td style="text-align:right">0.330</td>
+<td style="text-align:right">23.13</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">16</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.660</td>
+<td style="text-align:right">0.330</td>
+<td style="text-align:right">46.26</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">32</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.651</td>
+<td style="text-align:right">0.325</td>
+<td style="text-align:right">93.82</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">64</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.682</td>
+<td style="text-align:right">0.341</td>
+<td style="text-align:right">179.02</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">128</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.701</td>
+<td style="text-align:right">0.351</td>
+<td style="text-align:right">348.23</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">256</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.698</td>
+<td style="text-align:right">0.349</td>
+<td style="text-align:right">699.85</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">512</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.692</td>
+<td style="text-align:right">0.346</td>
+<td style="text-align:right">1411.58</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">1024</td>
+<td style="text-align:right">20000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.788</td>
+<td style="text-align:right">0.394</td>
+<td style="text-align:right">2477.76</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">4096</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">2.374</td>
+<td style="text-align:right">1.187</td>
+<td style="text-align:right">3292.76</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">16384</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">4.904</td>
+<td style="text-align:right">2.452</td>
+<td style="text-align:right">6372.32</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">65536</td>
+<td style="text-align:right">5000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">13.638</td>
+<td style="text-align:right">6.819</td>
+<td style="text-align:right">9165.62</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">262144</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">28.851</td>
+<td style="text-align:right">14.426</td>
+<td style="text-align:right">17330.60</td>
+</tr>
+<tr>
+<td>MPI_Ssend</td>
+<td style="text-align:right">1048576</td>
+<td style="text-align:right">1000</td>
+<td style="text-align:right">3</td>
+<td style="text-align:right">102.719</td>
+<td style="text-align:right">51.359</td>
+<td style="text-align:right">19471.12</td>
+</tr>
+</tbody>
+</table>
+<h2 id="graficos">Graficos</h2>
+<p><img src="tarefa14_tempo_por_tamanho.png" alt="Tempo por tamanho"></p>
+<p><img src="tarefa14_largura_banda.png" alt="Largura de banda"></p>
+<h2 id="analise">Analise</h2>
+<p>Para mensagens pequenas, o tempo varia pouco com o tamanho da mensagem. Esse e o
+regime dominado por latencia: custo de chamada MPI, sincronizacao entre processos,
+progresso do runtime e passagem pelos buffers internos pesam mais do que copiar os
+bytes da mensagem.</p>
+<p>Quando o tamanho cresce, a curva de tempo passa a aumentar de forma mais clara. Esse
+e o regime dominado por largura de banda: a transferencia de dados e as copias de
+memoria passam a representar a maior parte do custo. Nesse regime, a comparacao mais
+importante deixa de ser apenas o tempo absoluto e passa a ser a banda efetiva obtida.</p>
+<p>Nos dados coletados, para a maior mensagem testada o melhor caso de banda foi
+<code>MPI_Ssend</code>, com <code>19471.12 MiB/s</code> em
+mensagens de <code>1048576</code> bytes.</p>
+<p>Resumo por funcao:</p>
+<ul>
+<li><code>MPI_Bsend</code>: menor mensagem 8 bytes com 0.326 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 15393.92 MiB/s.</li>
+<li><code>MPI_Rsend</code>: menor mensagem 8 bytes com 0.486 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 19254.26 MiB/s.</li>
+<li><code>MPI_Send</code>: menor mensagem 8 bytes com 0.318 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 19315.39 MiB/s.</li>
+<li><code>MPI_Ssend</code>: menor mensagem 8 bytes com 0.660 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 19471.12 MiB/s.</li>
+</ul>
+<h2 id="validacao-dos-resultados">Validacao dos resultados</h2>
+<p>Os resultados estao de acordo com o comportamento esperado para comunicacao MPI em um
+mesmo host. As mensagens pequenas ficam na faixa de latencia, com tempos de ida e
+volta quase constantes e inferiores a <code>1 us</code> na maior parte dos casos. <code>MPI_Ssend</code>
+aparece mais lento nessa faixa porque exige sincronizacao mais forte com o receptor.</p>
+<p>A partir de alguns kilobytes, o tempo passa a crescer com o tamanho da mensagem e a
+banda efetiva se torna a metrica principal. Em <code>1 MB</code>, <code>MPI_Send</code>, <code>MPI_Rsend</code> e
+<code>MPI_Ssend</code> ficam proximos de <code>19 GiB/s</code>, enquanto <code>MPI_Bsend</code> cai para cerca de
+<code>15 GiB/s</code>, consistente com o custo adicional de copiar dados para o buffer anexado.</p>
+<p>O resultado de <code>MPI_Rsend</code> tambem e coerente: ele e pior nas mensagens pequenas por
+causa das mensagens de controle usadas para indicar que o receptor esta pronto, mas
+se aproxima das melhores bandas quando a mensagem e grande e esse overhead fica
+diluido.</p>
+<h2 id="conclusao">Conclusao</h2>
+<p>A Tarefa 14 mostrou dois regimes claros. Para mensagens pequenas, a latencia domina:
+o custo principal e iniciar e sincronizar a comunicacao, nao mover os bytes. Para
+mensagens grandes, a largura de banda domina: o tempo cresce com o tamanho da mensagem
+e as versoes convergem para a capacidade de transferencia do ambiente.</p>
+<p>Entre as funcoes testadas, <code>MPI_Send</code> teve o melhor comportamento geral em mensagens
+pequenas. <code>MPI_Ssend</code> foi mais caro nessa faixa por ser sincrono, mas ficou entre os
+melhores em mensagens grandes. <code>MPI_Bsend</code> apresentou perda em mensagens grandes por
+envolver bufferizacao explicita. <code>MPI_Rsend</code> exigiu cuidado especial na
+implementacao, pois so e correto quando o recebimento correspondente ja foi iniciado.</p>
+<h2 id="artefatos">Artefatos</h2>
+<ul>
+<li>Codigos: <code>Tarefa-14/mpi_send.c</code>, <code>Tarefa-14/mpi_bsend.c</code>,
+<code>Tarefa-14/mpi_rsend.c</code> e <code>Tarefa-14/mpi_ssend.c</code></li>
+<li>Coleta: <code>Tarefa-14/coletar_mpi.py</code></li>
+<li>CSV: <code>Tarefa-14/resultados/tarefa14_resultados.csv</code></li>
+<li>Graficos: <code>relatorios/tarefa14_tempo_por_tamanho.png</code> e
+<code>relatorios/tarefa14_largura_banda.png</code></li>
+<li>Relatorio: <code>Tarefa-14/resultados/relatorio_tarefa14.md</code></li>
+</ul>
+
+</body>
+</html>
