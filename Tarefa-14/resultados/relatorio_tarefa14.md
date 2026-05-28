@@ -110,6 +110,13 @@ e o regime dominado por largura de banda: a transferencia de dados e as copias d
 memoria passam a representar a maior parte do custo. Nesse regime, a comparacao mais
 importante deixa de ser apenas o tempo absoluto e passa a ser a banda efetiva obtida.
 
+Pelos resultados, o regime de latencia domina principalmente ate mensagens de cerca de
+`1024` bytes, onde o tempo medio de ida e volta permanece abaixo de `1 us` para
+`MPI_Send`, `MPI_Bsend` e `MPI_Ssend`. A partir de `4096` bytes o tempo passa a crescer
+mais claramente com o tamanho da mensagem. Em `16384`, `65536` e tamanhos maiores, a
+largura de banda passa a ser o fator principal, pois o custo de transferir os dados
+supera o custo fixo de iniciar a comunicacao.
+
 Nos dados coletados, para a maior mensagem testada o melhor caso de banda foi
 `MPI_Ssend`, com `19471.12 MiB/s` em
 mensagens de `1048576` bytes.
@@ -120,6 +127,384 @@ Resumo por funcao:
 - `MPI_Rsend`: menor mensagem 8 bytes com 0.486 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 19254.26 MiB/s.
 - `MPI_Send`: menor mensagem 8 bytes com 0.318 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 19315.39 MiB/s.
 - `MPI_Ssend`: menor mensagem 8 bytes com 0.660 us de ida e volta; maior mensagem 1048576 bytes com banda efetiva de 19471.12 MiB/s.
+
+## Validacao dos resultados
+
+Os resultados estao de acordo com o comportamento esperado para comunicacao MPI em um
+mesmo host. As mensagens pequenas ficam na faixa de latencia, com tempos de ida e
+volta quase constantes e inferiores a `1 us` na maior parte dos casos. `MPI_Ssend`
+aparece mais lento nessa faixa porque exige sincronizacao mais forte com o receptor.
+
+A partir de alguns kilobytes, o tempo passa a crescer com o tamanho da mensagem e a
+banda efetiva se torna a metrica principal. Em `1 MB`, `MPI_Send`, `MPI_Rsend` e
+`MPI_Ssend` ficam proximos de `19 GiB/s`, enquanto `MPI_Bsend` cai para cerca de
+`15 GiB/s`, consistente com o custo adicional de copiar dados para o buffer anexado.
+
+O resultado de `MPI_Rsend` tambem e coerente: ele e pior nas mensagens pequenas por
+causa das mensagens de controle usadas para indicar que o receptor esta pronto, mas
+se aproxima das melhores bandas quando a mensagem e grande e esse overhead fica
+diluido.
+
+## Conclusao
+
+A Tarefa 14 mostrou dois regimes claros. Para mensagens pequenas, a latencia domina:
+o custo principal e iniciar e sincronizar a comunicacao, nao mover os bytes. Para
+mensagens grandes, a largura de banda domina: o tempo cresce com o tamanho da mensagem
+e as versoes convergem para a capacidade de transferencia do ambiente.
+
+Entre as funcoes testadas, `MPI_Send` teve o melhor comportamento geral em mensagens
+pequenas. `MPI_Ssend` foi mais caro nessa faixa por ser sincrono, mas ficou entre os
+melhores em mensagens grandes. `MPI_Bsend` apresentou perda em mensagens grandes por
+envolver bufferizacao explicita. `MPI_Rsend` exigiu cuidado especial na
+implementacao, pois so e correto quando o recebimento correspondente ja foi iniciado.
+
+## Codigos
+
+### `mpi_send.c`
+
+```c
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TAG_IDA 10
+#define TAG_VOLTA 20
+
+static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
+{
+    for (int i = 1; i + 1 < argc; i++) {
+        if (strcmp(argv[i], opcao) == 0) {
+            return atoi(argv[i + 1]);
+        }
+    }
+    return padrao;
+}
+
+int main(int argc, char **argv)
+{
+    int rank;
+    int size;
+    int bytes;
+    int iteracoes;
+    char *mensagem;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (size != 2) {
+        if (rank == 0) {
+            printf("Execute com exatamente 2 processos: mpirun -np 2 ./mpi_send\n");
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
+    bytes = ler_inteiro(argc, argv, "--bytes", 8);
+    iteracoes = ler_inteiro(argc, argv, "--iteracoes", 1000);
+    mensagem = malloc((size_t)bytes);
+    if (mensagem == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        MPI_Finalize();
+        return 1;
+    }
+    memset(mensagem, 'A' + rank, (size_t)bytes);
+
+    double inicio = MPI_Wtime();
+
+    for (int i = 0; i < iteracoes; i++) {
+        if (rank == 0) {
+            MPI_Send(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+        } else {
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+            MPI_Send(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
+        }
+    }
+
+    double fim = MPI_Wtime();
+
+    if (rank == 0) {
+        printf(
+            "RESULT metodo=MPI_Send bytes=%d iteracoes=%d tempo_total=%.9f tempo_medio=%.12f\n",
+            bytes,
+            iteracoes,
+            fim - inicio,
+            (fim - inicio) / iteracoes
+        );
+    }
+
+    free(mensagem);
+    MPI_Finalize();
+    return 0;
+}
+```
+
+### `mpi_bsend.c`
+
+```c
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TAG_IDA 10
+#define TAG_VOLTA 20
+
+static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
+{
+    for (int i = 1; i + 1 < argc; i++) {
+        if (strcmp(argv[i], opcao) == 0) {
+            return atoi(argv[i + 1]);
+        }
+    }
+    return padrao;
+}
+
+int main(int argc, char **argv)
+{
+    int rank;
+    int size;
+    int bytes;
+    int iteracoes;
+    int tamanho_buffer;
+    char *mensagem;
+    char *buffer;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (size != 2) {
+        if (rank == 0) {
+            printf("Execute com exatamente 2 processos: mpirun -np 2 ./mpi_bsend\n");
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
+    bytes = ler_inteiro(argc, argv, "--bytes", 8);
+    iteracoes = ler_inteiro(argc, argv, "--iteracoes", 1000);
+
+    mensagem = malloc((size_t)bytes);
+    tamanho_buffer = bytes + MPI_BSEND_OVERHEAD;
+    buffer = malloc((size_t)tamanho_buffer);
+    if (mensagem == NULL || buffer == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        MPI_Finalize();
+        return 1;
+    }
+
+    MPI_Buffer_attach(buffer, tamanho_buffer);
+    memset(mensagem, 'A' + rank, (size_t)bytes);
+
+    double inicio = MPI_Wtime();
+
+    for (int i = 0; i < iteracoes; i++) {
+        if (rank == 0) {
+            MPI_Bsend(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+        } else {
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+            MPI_Bsend(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
+        }
+    }
+
+    double fim = MPI_Wtime();
+
+    if (rank == 0) {
+        printf(
+            "RESULT metodo=MPI_Bsend bytes=%d iteracoes=%d tempo_total=%.9f tempo_medio=%.12f\n",
+            bytes,
+            iteracoes,
+            fim - inicio,
+            (fim - inicio) / iteracoes
+        );
+    }
+
+    MPI_Buffer_detach(&buffer, &tamanho_buffer);
+    free(buffer);
+    free(mensagem);
+    MPI_Finalize();
+    return 0;
+}
+```
+
+### `mpi_rsend.c`
+
+```c
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TAG_IDA 10
+#define TAG_VOLTA 20
+#define TAG_PRONTO_IDA 30
+#define TAG_PRONTO_VOLTA 40
+
+static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
+{
+    for (int i = 1; i + 1 < argc; i++) {
+        if (strcmp(argv[i], opcao) == 0) {
+            return atoi(argv[i + 1]);
+        }
+    }
+    return padrao;
+}
+
+int main(int argc, char **argv)
+{
+    int rank;
+    int size;
+    int bytes;
+    int iteracoes;
+    int pronto = 1;
+    char *mensagem;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (size != 2) {
+        if (rank == 0) {
+            printf("Execute com exatamente 2 processos: mpirun -np 2 ./mpi_rsend\n");
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
+    bytes = ler_inteiro(argc, argv, "--bytes", 8);
+    iteracoes = ler_inteiro(argc, argv, "--iteracoes", 1000);
+    mensagem = malloc((size_t)bytes);
+    if (mensagem == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        MPI_Finalize();
+        return 1;
+    }
+    memset(mensagem, 'A' + rank, (size_t)bytes);
+
+    double inicio = MPI_Wtime();
+
+    for (int i = 0; i < iteracoes; i++) {
+        if (rank == 0) {
+            MPI_Recv(&pronto, 1, MPI_INT, 1, TAG_PRONTO_IDA, MPI_COMM_WORLD, &status);
+            MPI_Rsend(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
+
+            MPI_Send(&pronto, 1, MPI_INT, 1, TAG_PRONTO_VOLTA, MPI_COMM_WORLD);
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+        } else {
+            MPI_Send(&pronto, 1, MPI_INT, 0, TAG_PRONTO_IDA, MPI_COMM_WORLD);
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+
+            MPI_Recv(&pronto, 1, MPI_INT, 0, TAG_PRONTO_VOLTA, MPI_COMM_WORLD, &status);
+            MPI_Rsend(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
+        }
+    }
+
+    double fim = MPI_Wtime();
+
+    if (rank == 0) {
+        printf(
+            "RESULT metodo=MPI_Rsend bytes=%d iteracoes=%d tempo_total=%.9f tempo_medio=%.12f\n",
+            bytes,
+            iteracoes,
+            fim - inicio,
+            (fim - inicio) / iteracoes
+        );
+    }
+
+    free(mensagem);
+    MPI_Finalize();
+    return 0;
+}
+```
+
+### `mpi_ssend.c`
+
+```c
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TAG_IDA 10
+#define TAG_VOLTA 20
+
+static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
+{
+    for (int i = 1; i + 1 < argc; i++) {
+        if (strcmp(argv[i], opcao) == 0) {
+            return atoi(argv[i + 1]);
+        }
+    }
+    return padrao;
+}
+
+int main(int argc, char **argv)
+{
+    int rank;
+    int size;
+    int bytes;
+    int iteracoes;
+    char *mensagem;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (size != 2) {
+        if (rank == 0) {
+            printf("Execute com exatamente 2 processos: mpirun -np 2 ./mpi_ssend\n");
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
+    bytes = ler_inteiro(argc, argv, "--bytes", 8);
+    iteracoes = ler_inteiro(argc, argv, "--iteracoes", 1000);
+    mensagem = malloc((size_t)bytes);
+    if (mensagem == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        MPI_Finalize();
+        return 1;
+    }
+    memset(mensagem, 'A' + rank, (size_t)bytes);
+
+    double inicio = MPI_Wtime();
+
+    for (int i = 0; i < iteracoes; i++) {
+        if (rank == 0) {
+            MPI_Ssend(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+        } else {
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+            MPI_Ssend(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
+        }
+    }
+
+    double fim = MPI_Wtime();
+
+    if (rank == 0) {
+        printf(
+            "RESULT metodo=MPI_Ssend bytes=%d iteracoes=%d tempo_total=%.9f tempo_medio=%.12f\n",
+            bytes,
+            iteracoes,
+            fim - inicio,
+            (fim - inicio) / iteracoes
+        );
+    }
+
+    free(mensagem);
+    MPI_Finalize();
+    return 0;
+}
+```
 
 ## Artefatos
 

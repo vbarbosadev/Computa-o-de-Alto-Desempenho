@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CSV_FILE = ROOT / "resultados" / "tarefa14_resultados.csv"
 REPORT_FILE = ROOT / "resultados" / "relatorio_tarefa14.md"
+CODE_FILES = ["mpi_send.c", "mpi_bsend.c", "mpi_rsend.c", "mpi_ssend.c"]
 
 
 def load_rows():
@@ -87,6 +88,14 @@ def best_large_message(summary):
     return max(candidates, key=lambda row: row["mean_bandwidth"])
 
 
+def code_sections():
+    sections = []
+    for filename in CODE_FILES:
+        code = (ROOT / filename).read_text(encoding="utf-8").rstrip()
+        sections.append(f"### `{filename}`\n\n```c\n{code}\n```")
+    return "\n\n".join(sections)
+
+
 def generate_report(rows, summary):
     sizes = sorted({row["bytes"] for row in rows})
     largest_best = best_large_message(summary)
@@ -149,6 +158,13 @@ e o regime dominado por largura de banda: a transferencia de dados e as copias d
 memoria passam a representar a maior parte do custo. Nesse regime, a comparacao mais
 importante deixa de ser apenas o tempo absoluto e passa a ser a banda efetiva obtida.
 
+Pelos resultados, o regime de latencia domina principalmente ate mensagens de cerca de
+`1024` bytes, onde o tempo medio de ida e volta permanece abaixo de `1 us` para
+`MPI_Send`, `MPI_Bsend` e `MPI_Ssend`. A partir de `4096` bytes o tempo passa a crescer
+mais claramente com o tamanho da mensagem. Em `16384`, `65536` e tamanhos maiores, a
+largura de banda passa a ser o fator principal, pois o custo de transferir os dados
+supera o custo fixo de iniciar a comunicacao.
+
 Nos dados coletados, para a maior mensagem testada o melhor caso de banda foi
 `{largest_best['method']}`, com `{largest_best['mean_bandwidth']:.2f} MiB/s` em
 mensagens de `{largest_best['bytes']}` bytes.
@@ -156,6 +172,40 @@ mensagens de `{largest_best['bytes']}` bytes.
 Resumo por funcao:
 
 {method_extremes(summary)}
+
+## Validacao dos resultados
+
+Os resultados estao de acordo com o comportamento esperado para comunicacao MPI em um
+mesmo host. As mensagens pequenas ficam na faixa de latencia, com tempos de ida e
+volta quase constantes e inferiores a `1 us` na maior parte dos casos. `MPI_Ssend`
+aparece mais lento nessa faixa porque exige sincronizacao mais forte com o receptor.
+
+A partir de alguns kilobytes, o tempo passa a crescer com o tamanho da mensagem e a
+banda efetiva se torna a metrica principal. Em `1 MB`, `MPI_Send`, `MPI_Rsend` e
+`MPI_Ssend` ficam proximos de `19 GiB/s`, enquanto `MPI_Bsend` cai para cerca de
+`15 GiB/s`, consistente com o custo adicional de copiar dados para o buffer anexado.
+
+O resultado de `MPI_Rsend` tambem e coerente: ele e pior nas mensagens pequenas por
+causa das mensagens de controle usadas para indicar que o receptor esta pronto, mas
+se aproxima das melhores bandas quando a mensagem e grande e esse overhead fica
+diluido.
+
+## Conclusao
+
+A Tarefa 14 mostrou dois regimes claros. Para mensagens pequenas, a latencia domina:
+o custo principal e iniciar e sincronizar a comunicacao, nao mover os bytes. Para
+mensagens grandes, a largura de banda domina: o tempo cresce com o tamanho da mensagem
+e as versoes convergem para a capacidade de transferencia do ambiente.
+
+Entre as funcoes testadas, `MPI_Send` teve o melhor comportamento geral em mensagens
+pequenas. `MPI_Ssend` foi mais caro nessa faixa por ser sincrono, mas ficou entre os
+melhores em mensagens grandes. `MPI_Bsend` apresentou perda em mensagens grandes por
+envolver bufferizacao explicita. `MPI_Rsend` exigiu cuidado especial na
+implementacao, pois so e correto quando o recebimento correspondente ja foi iniciado.
+
+## Codigos
+
+{code_sections()}
 
 ## Artefatos
 
