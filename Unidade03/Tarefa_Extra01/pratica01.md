@@ -1,3 +1,6 @@
+## Prática introdutória 01
+
+```c
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
@@ -164,3 +167,4 @@ int main(int argc, char *argv[]) {
 
     return EXIT_SUCCESS;
 }
+```
