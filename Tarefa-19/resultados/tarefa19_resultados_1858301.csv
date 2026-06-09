@@ -1,0 +1,3 @@
+variant,device,n,repeats,best_compute_s,avg_compute_s,init_s,verify_s,errors,omp_threads,omp_devices
+cpu,host,100000000,5,0.107329130,0.108146763,0.501634121,0.103204966,0,1,0
+gpu,openmp-target,100000000,5,0.125133038,0.125197220,0.494171143,0.101060152,0,1,1
