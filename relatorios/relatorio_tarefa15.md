@@ -1,45 +1,45 @@
-# Tarefa 15 - Difusao de calor 1D com MPI
+# Tarefa 15 - Difusão de calor 1D com MPI
 
 ## Objetivo
 
-Implementar uma simulacao de difusao de calor em uma barra 1D dividida entre dois
-ou mais processos MPI. Cada processo calcula um trecho da barra e mantem duas celulas
-extras: uma borda fantasma a esquerda e outra a direita. Essas celulas recebem os
+Implementar uma simulação de difusão de calor em uma barra 1D dividida entre dois
+ou mais processos MPI. Cada processo calcula um trecho da barra e mantém duas células
+extras: uma borda fantasma à esquerda e outra à direita. Essas células recebem os
 valores dos vizinhos por troca de mensagens.
 
-Foram implementadas tres versoes:
+Foram implementadas três versões:
 
-- `send_recv`: comunicacao bloqueante com `MPI_Send` e `MPI_Recv`.
-- `isend_irecv_wait`: comunicacao nao bloqueante com `MPI_Isend`, `MPI_Irecv` e
-  espera explicita com `MPI_Wait`.
-- `isend_irecv_test`: comunicacao nao bloqueante com `MPI_Isend`, `MPI_Irecv` e
-  consultas com `MPI_Test`, atualizando pontos internos enquanto a comunicacao das
+- `send_recv`: comunicação bloqueante com `MPI_Send` e `MPI_Recv`.
+- `isend_irecv_wait`: comunicação não bloqueante com `MPI_Isend`, `MPI_Irecv` e
+  espera explícita com `MPI_Wait`.
+- `isend_irecv_test`: comunicação não bloqueante com `MPI_Isend`, `MPI_Irecv` e
+  consultas com `MPI_Test`, atualizando pontos internos enquanto a comunicação das
   bordas ainda pode estar em andamento.
 
-## Modelo numerico
+## Modelo numérico
 
-A barra 1D usa a atualizacao explicita:
+A barra 1D usa a atualização explícita:
 
 ```c
 novo[i] = u[i] + alpha * (u[i - 1] - 2.0 * u[i] + u[i + 1]);
 ```
 
-Foi usado `alpha = 0.25`, valor estavel para este esquema simples. A condicao inicial
-coloca uma regiao quente no inicio global da barra, entre as posicoes `45` e `55`,
+Foi usado `alpha = 0.25`, valor estável para este esquema simples. A condição inicial
+coloca uma região quente no início global da barra, entre as posições `45` e `55`,
 com temperatura `100.0`; o restante inicia com `0.0`.
 
-## Configuracao
+## Configuração
 
 - Processos testados: `2, 4`
 - Tamanhos da barra: `100000, 1000000`
 - Passos de tempo: `2000`
-- Rodadas por configuracao: `3`
-- Compilacao: `mpicc -O3 -Wall -Wextra -lm`
-- Medicao de tempo: `MPI_Wtime`
+- Rodadas por configuração: `3`
+- Compilação: `mpicc -O3 -Wall -Wextra -lm`
+- Medição de tempo: `MPI_Wtime`
 
 ## Resultados
 
-|Versao|Processos|N|Passos|Rodadas|Media (s)|Min (s)|Max (s)|Soma final|
+|Versão|Processos|N|Passos|Rodadas|Média (s)|Min (s)|Max (s)|Soma final|
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
 |isend_irecv_test|2|100000|2000|3|0.056750|0.056597|0.056869|980.561916|
 |isend_irecv_test|2|1000000|2000|3|0.587059|0.581999|0.591014|980.561916|
@@ -54,7 +54,7 @@ com temperatura `100.0`; o restante inicia com `0.0`.
 |send_recv|4|100000|2000|3|0.016370|0.015059|0.017386|980.561916|
 |send_recv|4|1000000|2000|3|0.168722|0.156634|0.189791|980.561916|
 
-## Graficos
+## Gráficos
 
 ![Tempo N=100000](tarefa15_tempo_n100000.png)
 
@@ -64,57 +64,57 @@ com temperatura `100.0`; o restante inicia com `0.0`.
 
 ## Melhores casos
 
-- 2 processos, N=100000: `send_recv` com media 0.025401s.
-- 2 processos, N=1000000: `send_recv` com media 0.318999s.
-- 4 processos, N=100000: `send_recv` com media 0.016370s.
-- 4 processos, N=1000000: `isend_irecv_wait` com media 0.163649s.
+- 2 processos, N=100000: `send_recv` com média 0.025401s.
+- 2 processos, N=1000000: `send_recv` com média 0.318999s.
+- 4 processos, N=100000: `send_recv` com média 0.016370s.
+- 4 processos, N=1000000: `isend_irecv_wait` com média 0.163649s.
 
-## Analise
+## Análise
 
-Na versao `send_recv`, a troca de bordas e bloqueante. O processo fica parado enquanto
-espera receber valores dos vizinhos e so depois atualiza seus pontos. Essa versao e a
-mais simples para entender a comunicacao, mas tende a expor mais o custo de espera.
+Na versão `send_recv`, a troca de bordas é bloqueante. O processo fica parado enquanto
+espera receber valores dos vizinhos e só depois atualiza seus pontos. Essa versão é a
+mais simples para entender a comunicação, mas tende a expor mais o custo de espera.
 
-Na versao `isend_irecv_wait`, as operacoes de envio e recebimento sao iniciadas com
+Na versão `isend_irecv_wait`, as operações de envio e recebimento são iniciadas com
 `MPI_Isend` e `MPI_Irecv`. Em seguida, o programa usa `MPI_Wait` para garantir que as
-mensagens chegaram antes de atualizar a barra. Essa versao evita algumas esperas de
-envio e recebimento bloqueantes, mas ainda nao sobrepoe muito calculo e comunicacao,
+mensagens chegaram antes de atualizar a barra. Essa versão evita algumas esperas de
+envio e recebimento bloqueantes, mas ainda não sobrepõe muito cálculo e comunicação,
 pois espera pelas bordas antes de calcular os pontos.
 
-Na versao `isend_irecv_test`, as mensagens tambem sao iniciadas de forma nao
-bloqueante, mas os pontos internos da barra sao calculados enquanto o programa chama
-`MPI_Test` para verificar se as bordas chegaram. Os pontos internos nao dependem das
-celulas fantasmas, portanto podem ser atualizados antes da conclusao da comunicacao.
-Depois que as bordas chegam, os pontos das extremidades locais sao atualizados.
+Na versão `isend_irecv_test`, as mensagens também são iniciadas de forma não
+bloqueante, mas os pontos internos da barra são calculados enquanto o programa chama
+`MPI_Test` para verificar se as bordas chegaram. Os pontos internos não dependem das
+células fantasmas, portanto podem ser atualizados antes da conclusão da comunicação.
+Depois que as bordas chegam, os pontos das extremidades locais são atualizados.
 
-O ganho esperado com sobreposicao aparece quando ha trabalho interno suficiente para
+O ganho esperado com sobreposição aparece quando há trabalho interno suficiente para
 ocupar o tempo em que as mensagens de borda trafegam. Por isso, tamanhos maiores de
-barra tendem a favorecer mais a versao com `MPI_Test`. Em problemas pequenos, o custo
-de iniciar as mensagens e testar requisicoes pode ser parecido ou maior do que o ganho
-da sobreposicao.
+barra tendem a favorecer mais a versão com `MPI_Test`. Em problemas pequenos, o custo
+de iniciar as mensagens e testar requisições pode ser parecido ou maior do que o ganho
+da sobreposição.
 
-Nos dados coletados nesta maquina, a versao `isend_irecv_test` ficou mais lenta que
+Nos dados coletados nesta máquina, a versão `isend_irecv_test` ficou mais lenta que
 as outras. Isso ocorreu porque o programa chama `MPI_Test` repetidamente enquanto
 atualiza os pontos internos. Como cada processo troca apenas dois valores de borda por
-passo, a comunicacao e pequena; assim, o custo extra de testar as requisicoes muitas
-vezes ficou maior que o beneficio da sobreposicao. O melhor resultado para `N=1000000`
+passo, a comunicação é pequena; assim, o custo extra de testar as requisições muitas
+vezes ficou maior que o benefício da sobreposição. O melhor resultado para `N=1000000`
 com 4 processos foi `isend_irecv_wait`, enquanto `send_recv` foi melhor nos casos
 menores.
 
-## Conclusao
+## Conclusão
 
-A Tarefa mostra a evolucao natural da comunicacao MPI. A versao com `MPI_Send` e
-`MPI_Recv` e adequada como primeira implementacao, pois deixa clara a troca de bordas.
-A versao com `MPI_Isend`, `MPI_Irecv` e `MPI_Wait` introduz comunicacao nao bloqueante,
-mas ainda espera explicitamente pelas mensagens antes do calculo completo. A versao
-com `MPI_Test` explora melhor a ideia da aula 22: enquanto a comunicacao nao termina,
-o processo pode atualizar os pontos internos que nao dependem das bordas.
+A Tarefa mostra a evolução natural da comunicação MPI. A versão com `MPI_Send` e
+`MPI_Recv` é adequada como primeira implementação, pois deixa clara a troca de bordas.
+A versão com `MPI_Isend`, `MPI_Irecv` e `MPI_Wait` introduz comunicação não bloqueante,
+mas ainda espera explicitamente pelas mensagens antes do cálculo completo. A versão
+com `MPI_Test` explora melhor a ideia da aula 22: enquanto a comunicação não termina,
+o processo pode atualizar os pontos internos que não dependem das bordas.
 
-Assim, a principal vantagem da comunicacao nao bloqueante nao e apenas trocar a funcao
-de envio ou recepcao, mas reorganizar o algoritmo para sobrepor comunicacao e
-computacao.
+Assim, a principal vantagem da comunicação não bloqueante não é apenas trocar a função
+de envio ou recepção, mas reorganizar o algoritmo para sobrepor comunicação e
+computação.
 
-## Codigos
+## Códigos
 
 ### `heat_send_recv.c`
 
@@ -657,11 +657,11 @@ int main(int argc, char **argv)
 
 ## Artefatos
 
-- Codigos: `Tarefa-15/heat_send_recv.c`, `Tarefa-15/heat_isend_irecv_wait.c` e
+- Códigos: `Tarefa-15/heat_send_recv.c`, `Tarefa-15/heat_isend_irecv_wait.c` e
   `Tarefa-15/heat_isend_irecv_test.c`
 - Coleta: `Tarefa-15/coletar_mpi.py`
 - CSV: `Tarefa-15/resultados/tarefa15_resultados.csv`
-- Graficos: `relatorios/tarefa15_tempo_n100000.png`,
+- Gráficos: `relatorios/tarefa15_tempo_n100000.png`,
   `relatorios/tarefa15_tempo_n1000000.png` e
   `relatorios/tarefa15_speedup_relativo.png`
-- Relatorio: `Tarefa-15/resultados/relatorio_tarefa15.md`
+- Relatório: `Tarefa-15/resultados/relatorio_tarefa15.md`
