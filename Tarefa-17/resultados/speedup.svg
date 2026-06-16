@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560">
+<rect width="100%" height="100%" fill="white"/>
+<text x="450.0" y="32" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700">Speedup seq - produto matriz-vetor</text>
+<text x="450.0" y="538" text-anchor="middle" font-family="Arial, sans-serif" font-size="15">Processos MPI</text>
+<text x="22" y="273.0" text-anchor="middle" transform="rotate(-90 22 273.0)" font-family="Arial, sans-serif" font-size="15">Speedup contra sequencial</text>
+<line x1="82" y1="62" x2="82" y2="484" stroke="#222" stroke-width="1.5"/>
+<line x1="82" y1="484" x2="710" y2="484" stroke="#222" stroke-width="1.5"/>
+<line x1="82" y1="484.00" x2="710" y2="484.00" stroke="#ddd" stroke-width="1"/>
+<text x="72" y="489.00" text-anchor="end" font-family="Arial, sans-serif" font-size="12">0.00</text>
+<line x1="82" y1="399.60" x2="710" y2="399.60" stroke="#ddd" stroke-width="1"/>
+<text x="72" y="404.60" text-anchor="end" font-family="Arial, sans-serif" font-size="12">0.23</text>
+<line x1="82" y1="315.20" x2="710" y2="315.20" stroke="#ddd" stroke-width="1"/>
+<text x="72" y="320.20" text-anchor="end" font-family="Arial, sans-serif" font-size="12">0.46</text>
+<line x1="82" y1="230.80" x2="710" y2="230.80" stroke="#ddd" stroke-width="1"/>
+<text x="72" y="235.80" text-anchor="end" font-family="Arial, sans-serif" font-size="12">0.69</text>
+<line x1="82" y1="146.40" x2="710" y2="146.40" stroke="#ddd" stroke-width="1"/>
+<text x="72" y="151.40" text-anchor="end" font-family="Arial, sans-serif" font-size="12">0.92</text>
+<line x1="82" y1="62.00" x2="710" y2="62.00" stroke="#ddd" stroke-width="1"/>
+<text x="72" y="67.00" text-anchor="end" font-family="Arial, sans-serif" font-size="12">1.15</text>
+<line x1="82.00" y1="484" x2="82.00" y2="490" stroke="#222" stroke-width="1"/>
+<text x="82.00" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">1</text>
+<line x1="396.00" y1="484" x2="396.00" y2="490" stroke="#222" stroke-width="1"/>
+<text x="396.00" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">2</text>
+<line x1="710.00" y1="484" x2="710.00" y2="490" stroke="#222" stroke-width="1"/>
+<text x="710.00" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">4</text>
+<line x1="82" y1="117.04" x2="710" y2="117.04" stroke="#555" stroke-width="2" stroke-dasharray="6 5"/>
+<text x="702" y="109.04" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#333">Sequencial = 1,00</text>
+<polyline fill="none" stroke="#1f77b4" stroke-width="2.5" points="82.00,401.01 396.00,399.44 710.00,397.27"/>
+<circle cx="82.00" cy="401.01" r="4.5" fill="#1f77b4"/>
+<circle cx="396.00" cy="399.44" r="4.5" fill="#1f77b4"/>
+<circle cx="710.00" cy="397.27" r="4.5" fill="#1f77b4"/>
+<rect x="744" y="74" width="15" height="15" fill="#1f77b4"/>
+<text x="768" y="86" font-family="Arial, sans-serif" font-size="13">1000x1000</text>
+<polyline fill="none" stroke="#d62728" stroke-width="2.5" points="82.00,391.05 396.00,383.40 710.00,378.97"/>
+<circle cx="82.00" cy="391.05" r="4.5" fill="#d62728"/>
+<circle cx="396.00" cy="383.40" r="4.5" fill="#d62728"/>
+<circle cx="710.00" cy="378.97" r="4.5" fill="#d62728"/>
+<rect x="744" y="98" width="15" height="15" fill="#d62728"/>
+<text x="768" y="110" font-family="Arial, sans-serif" font-size="13">2000x2000</text>
+<polyline fill="none" stroke="#2ca02c" stroke-width="2.5" points="82.00,413.47 396.00,407.32 710.00,404.64"/>
+<circle cx="82.00" cy="413.47" r="4.5" fill="#2ca02c"/>
+<circle cx="396.00" cy="407.32" r="4.5" fill="#2ca02c"/>
+<circle cx="710.00" cy="404.64" r="4.5" fill="#2ca02c"/>
+<rect x="744" y="122" width="15" height="15" fill="#2ca02c"/>
+<text x="768" y="134" font-family="Arial, sans-serif" font-size="13">4000x2000</text>
+<polyline fill="none" stroke="#9467bd" stroke-width="2.5" points="82.00,411.96 396.00,402.46 710.00,395.22"/>
+<circle cx="82.00" cy="411.96" r="4.5" fill="#9467bd"/>
+<circle cx="396.00" cy="402.46" r="4.5" fill="#9467bd"/>
+<circle cx="710.00" cy="395.22" r="4.5" fill="#9467bd"/>
+<rect x="744" y="146" width="15" height="15" fill="#9467bd"/>
+<text x="768" y="158" font-family="Arial, sans-serif" font-size="13">8000x4000</text>
+</svg>

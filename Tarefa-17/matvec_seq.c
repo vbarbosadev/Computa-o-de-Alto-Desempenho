@@ -1,7 +1,7 @@
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 
 static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
 {
@@ -13,11 +13,31 @@ static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
     return padrao;
 }
 
-static double tempo_agora(void)
+static void preencher_matriz(double *a, int m, int n)
 {
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double)tv.tv_sec + (double)tv.tv_usec * 0.000001;
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            a[i * n + j] = valor_a(i, j);
+        }
+    }
+}
+
+static void preencher_vetor(double *x, int n)
+{
+    for (int j = 0; j < n; j++) {
+        x[j] = valor_x(j);
+    }
+}
+
+static void multiplicar_local(double *a_local, double *x, double *y_local, int linhas, int n)
+{
+    for (int i = 0; i < linhas; i++) {
+        double soma = 0.0;
+        for (int j = 0; j < n; j++) {
+            soma += a_local[i * n + j] * x[j];
+        }
+        y_local[i] = soma;
+    }
 }
 
 static double valor_a(int i, int j)
@@ -46,24 +66,12 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    for (int j = 0; j < n; j++) {
-        x[j] = valor_x(j);
-    }
-    for (int i = 0; i < m; i++) {
-        for (int j = 0; j < n; j++) {
-            a[i * n + j] = valor_a(i, j);
-        }
-    }
+    preencher_vetor(x, n);
+    preencher_matriz(a, m, n);
 
-    double inicio = tempo_agora();
-    for (int i = 0; i < m; i++) {
-        double soma = 0.0;
-        for (int j = 0; j < n; j++) {
-            soma += a[i * n + j] * x[j];
-        }
-        y[i] = soma;
-    }
-    double fim = tempo_agora();
+    double inicio = omp_get_wtime();
+    multiplicar_local(a, x, y, m, n);
+    double fim = omp_get_wtime();
 
     double checksum = 0.0;
     for (int i = 0; i < m; i++) {

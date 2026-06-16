@@ -1,5 +1,6 @@
 import csv
 import statistics
+import textwrap
 from collections import defaultdict
 from pathlib import Path
 
@@ -7,7 +8,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CSV_FILE = ROOT / "resultados" / "tarefa17_resultados.csv"
 REPORT_FILE = ROOT / "resultados" / "relatorio_tarefa17.md"
+PDF_FILE = ROOT / "resultados" / "relatorio_tarefa17.pdf"
 CODE_FILES = ["matvec_seq.c", "matvec_collective.c"]
+COLORS = ["#1f77b4", "#d62728", "#2ca02c", "#9467bd", "#ff7f0e", "#17becf"]
 
 
 def load_rows():
@@ -16,7 +19,20 @@ def load_rows():
         for row in csv.DictReader(f):
             for key in ["rep", "m", "n", "processes", "rows_per_process"]:
                 row[key] = int(row[key])
-            for key in ["seq_time", "elapsed", "speedup", "efficiency", "checksum"]:
+            for key in [
+                "seq_time",
+                "total_time",
+                "bcast_time",
+                "scatter_time",
+                "compute_time",
+                "gather_time",
+                "reduce_time",
+                "speedup_seq",
+                "efficiency_seq",
+                "speedup_mpi",
+                "efficiency_mpi",
+                "checksum",
+            ]:
                 row[key] = float(row[key])
             rows.append(row)
     return rows
@@ -29,9 +45,7 @@ def aggregate(rows):
 
     summary = []
     for key, values in sorted(groups.items()):
-        elapsed = [row["elapsed"] for row in values]
-        speedups = [row["speedup"] for row in values]
-        efficiencies = [row["efficiency"] for row in values]
+        total_times = [row["total_time"] for row in values]
         summary.append({
             "m": key[0],
             "n": key[1],
@@ -39,11 +53,18 @@ def aggregate(rows):
             "rows_per_process": values[0]["rows_per_process"],
             "runs": len(values),
             "seq_time": values[0]["seq_time"],
-            "mean": statistics.mean(elapsed),
-            "min": min(elapsed),
-            "max": max(elapsed),
-            "speedup": statistics.mean(speedups),
-            "efficiency": statistics.mean(efficiencies),
+            "mean_total": statistics.mean(total_times),
+            "min_total": min(total_times),
+            "max_total": max(total_times),
+            "bcast_time": statistics.mean(row["bcast_time"] for row in values),
+            "scatter_time": statistics.mean(row["scatter_time"] for row in values),
+            "compute_time": statistics.mean(row["compute_time"] for row in values),
+            "gather_time": statistics.mean(row["gather_time"] for row in values),
+            "reduce_time": statistics.mean(row["reduce_time"] for row in values),
+            "speedup_seq": statistics.mean(row["speedup_seq"] for row in values),
+            "efficiency_seq": statistics.mean(row["efficiency_seq"] for row in values),
+            "speedup_mpi": statistics.mean(row["speedup_mpi"] for row in values),
+            "efficiency_mpi": statistics.mean(row["efficiency_mpi"] for row in values),
             "checksum": values[0]["checksum"],
         })
     return summary
@@ -51,14 +72,38 @@ def aggregate(rows):
 
 def table(summary):
     lines = [
-        "|M|N|Processos|Linhas/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Checksum|",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|M|N|Versao|Proc.|Linhas/proc.|Rodadas|Tempo medio (s)|Speedup seq|Efic. seq|Speedup MPI|Efic. MPI|Checksum|",
+        "|---:|---:|:---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    current_size = None
+    for row in summary:
+        size = (row["m"], row["n"])
+        if size != current_size:
+            lines.append(
+                f"|{row['m']}|{row['n']}|Sequencial|-|-|1|{row['seq_time']:.6f}|"
+                f"1.00|1.00|-|-|{row['checksum']:.2f}|"
+            )
+            current_size = size
+        lines.append(
+            f"|{row['m']}|{row['n']}|MPI|{row['processes']}|{row['rows_per_process']}|"
+            f"{row['runs']}|{row['mean_total']:.6f}|"
+            f"{row['speedup_seq']:.2f}|{row['efficiency_seq']:.2f}|"
+            f"{row['speedup_mpi']:.2f}|{row['efficiency_mpi']:.2f}|{row['checksum']:.2f}|"
+        )
+    return "\n".join(lines)
+
+
+def timing_table(summary):
+    lines = [
+        "|M|N|Proc.|Bcast (s)|Scatter (s)|Calculo (s)|Gather (s)|Reduce (s)|",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
         lines.append(
-            f"|{row['m']}|{row['n']}|{row['processes']}|{row['rows_per_process']}|"
-            f"{row['runs']}|{row['seq_time']:.6f}|{row['mean']:.6f}|"
-            f"{row['speedup']:.2f}|{row['efficiency']:.2f}|{row['checksum']:.2f}|"
+            f"|{row['m']}|{row['n']}|{row['processes']}|"
+            f"{row['bcast_time']:.6f}|{row['scatter_time']:.6f}|"
+            f"{row['compute_time']:.6f}|{row['gather_time']:.6f}|"
+            f"{row['reduce_time']:.6f}|"
         )
     return "\n".join(lines)
 
@@ -70,12 +115,90 @@ def best_lines(summary):
 
     lines = []
     for key in sorted(groups):
-        best = min(groups[key], key=lambda row: row["mean"])
+        best = min(groups[key], key=lambda row: row["mean_total"])
+        seq_time = best["seq_time"]
+        seq_factor = best["mean_total"] / seq_time
         lines.append(
-            f"- Matriz {key[0]}x{key[1]}: melhor tempo com {best['processes']} processos, "
-            f"media {best['mean']:.6f}s, speedup {best['speedup']:.2f}."
+            f"- Matriz {key[0]}x{key[1]}: melhor tempo MPI com {best['processes']} processos, "
+            f"media {best['mean_total']:.6f}s, speedup seq {best['speedup_seq']:.2f}, "
+            f"speedup MPI {best['speedup_mpi']:.2f}. A base sequencial foi {seq_time:.6f}s "
+            f"(speedup 1.00), ficando {seq_factor:.2f}x mais rapida que esse melhor MPI."
         )
     return "\n".join(lines)
+
+
+def write_svg_chart(summary, filename, metric, ylabel, title):
+    width = 900
+    height = 560
+    margin_left = 82
+    margin_right = 190
+    margin_top = 62
+    margin_bottom = 76
+    plot_w = width - margin_left - margin_right
+    plot_h = height - margin_top - margin_bottom
+
+    sizes = sorted({(row["m"], row["n"]) for row in summary})
+    processes = sorted({row["processes"] for row in summary})
+    values = [row[metric] for row in summary]
+    show_seq_reference = metric in {"speedup_seq", "efficiency_seq"}
+    max_value = max(values) if values else 1.0
+    y_max = max(1.15 if show_seq_reference else 1.0, max_value * 1.15)
+
+    def x_pos(process):
+        if len(processes) == 1:
+            return margin_left + plot_w / 2
+        return margin_left + (processes.index(process) / (len(processes) - 1)) * plot_w
+
+    def y_pos(value):
+        return margin_top + plot_h - (value / y_max) * plot_h
+
+    elements = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="white"/>',
+        f'<text x="{width / 2}" y="32" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="700">{title}</text>',
+        f'<text x="{width / 2}" y="{height - 22}" text-anchor="middle" font-family="Arial, sans-serif" font-size="15">Processos MPI</text>',
+        f'<text x="22" y="{margin_top + plot_h / 2}" text-anchor="middle" transform="rotate(-90 22 {margin_top + plot_h / 2})" font-family="Arial, sans-serif" font-size="15">{ylabel}</text>',
+        f'<line x1="{margin_left}" y1="{margin_top}" x2="{margin_left}" y2="{margin_top + plot_h}" stroke="#222" stroke-width="1.5"/>',
+        f'<line x1="{margin_left}" y1="{margin_top + plot_h}" x2="{margin_left + plot_w}" y2="{margin_top + plot_h}" stroke="#222" stroke-width="1.5"/>',
+    ]
+
+    for i in range(6):
+        value = y_max * i / 5
+        y = y_pos(value)
+        elements.append(f'<line x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_w}" y2="{y:.2f}" stroke="#ddd" stroke-width="1"/>')
+        elements.append(f'<text x="{margin_left - 10}" y="{y + 5:.2f}" text-anchor="end" font-family="Arial, sans-serif" font-size="12">{value:.2f}</text>')
+
+    for process in processes:
+        x = x_pos(process)
+        elements.append(f'<line x1="{x:.2f}" y1="{margin_top + plot_h}" x2="{x:.2f}" y2="{margin_top + plot_h + 6}" stroke="#222" stroke-width="1"/>')
+        elements.append(f'<text x="{x:.2f}" y="{margin_top + plot_h + 24}" text-anchor="middle" font-family="Arial, sans-serif" font-size="13">{process}</text>')
+
+    if show_seq_reference:
+        y = y_pos(1.0)
+        elements.append(f'<line x1="{margin_left}" y1="{y:.2f}" x2="{margin_left + plot_w}" y2="{y:.2f}" stroke="#555" stroke-width="2" stroke-dasharray="6 5"/>')
+        elements.append(f'<text x="{margin_left + plot_w - 8}" y="{y - 8:.2f}" text-anchor="end" font-family="Arial, sans-serif" font-size="12" fill="#333">Sequencial = 1,00</text>')
+
+    for idx, size in enumerate(sizes):
+        color = COLORS[idx % len(COLORS)]
+        rows = [row for row in summary if row["m"] == size[0] and row["n"] == size[1]]
+        rows = sorted(rows, key=lambda row: row["processes"])
+        points = " ".join(f'{x_pos(row["processes"]):.2f},{y_pos(row[metric]):.2f}' for row in rows)
+        elements.append(f'<polyline fill="none" stroke="{color}" stroke-width="2.5" points="{points}"/>')
+        for row in rows:
+            elements.append(f'<circle cx="{x_pos(row["processes"]):.2f}" cy="{y_pos(row[metric]):.2f}" r="4.5" fill="{color}"/>')
+        legend_y = margin_top + 24 + idx * 24
+        elements.append(f'<rect x="{margin_left + plot_w + 34}" y="{legend_y - 12}" width="15" height="15" fill="{color}"/>')
+        elements.append(f'<text x="{margin_left + plot_w + 58}" y="{legend_y}" font-family="Arial, sans-serif" font-size="13">{size[0]}x{size[1]}</text>')
+
+    elements.append("</svg>")
+    (ROOT / "resultados" / filename).write_text("\n".join(elements), encoding="utf-8")
+
+
+def write_charts(summary):
+    write_svg_chart(summary, "speedup.svg", "speedup_seq", "Speedup contra sequencial", "Speedup seq - produto matriz-vetor")
+    write_svg_chart(summary, "eficiencia.svg", "efficiency_seq", "Eficiencia contra sequencial", "Eficiencia seq - produto matriz-vetor")
+    write_svg_chart(summary, "speedup_mpi.svg", "speedup_mpi", "Speedup interno MPI", "Speedup MPI - produto matriz-vetor")
+    write_svg_chart(summary, "eficiencia_mpi.svg", "efficiency_mpi", "Eficiencia interna MPI", "Eficiencia MPI - produto matriz-vetor")
 
 
 def code_sections():
@@ -84,6 +207,85 @@ def code_sections():
         code = (ROOT / filename).read_text(encoding="utf-8").rstrip()
         sections.append(f"### `{filename}`\n\n```c\n{code}\n```")
     return "\n\n".join(sections)
+
+
+def pdf_escape(text):
+    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def write_simple_pdf(text):
+    page_width = 595
+    page_height = 842
+    left = 40
+    top = 805
+    font_size = 8
+    line_height = 10
+    max_chars = 108
+    max_lines = int((top - 45) / line_height)
+
+    lines = []
+    for original in text.splitlines():
+        if original == "":
+            lines.append("")
+            continue
+        wrapped = textwrap.wrap(
+            original,
+            width=max_chars,
+            replace_whitespace=False,
+            drop_whitespace=False,
+        )
+        lines.extend(wrapped or [""])
+
+    pages = [lines[i:i + max_lines] for i in range(0, len(lines), max_lines)]
+    objects = []
+
+    def add_object(content):
+        objects.append(content)
+        return len(objects)
+
+    catalog_id = add_object("<< /Type /Catalog /Pages 2 0 R >>")
+    pages_id = add_object("")
+    font_id = add_object("<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>")
+    page_ids = []
+
+    for page_lines in pages:
+        stream_lines = ["BT", f"/F1 {font_size} Tf", f"{left} {top} Td"]
+        for idx, line in enumerate(page_lines):
+            if idx > 0:
+                stream_lines.append(f"0 -{line_height} Td")
+            stream_lines.append(f"({pdf_escape(line)}) Tj")
+        stream_lines.append("ET")
+        stream = "\n".join(stream_lines)
+        stream_id = add_object(f"<< /Length {len(stream.encode('latin-1'))} >>\nstream\n{stream}\nendstream")
+        page_id = add_object(
+            f"<< /Type /Page /Parent {pages_id} 0 R /MediaBox [0 0 {page_width} {page_height}] "
+            f"/Resources << /Font << /F1 {font_id} 0 R >> >> /Contents {stream_id} 0 R >>"
+        )
+        page_ids.append(page_id)
+
+    objects[pages_id - 1] = (
+        f"<< /Type /Pages /Kids [{' '.join(f'{page_id} 0 R' for page_id in page_ids)}] "
+        f"/Count {len(page_ids)} >>"
+    )
+
+    output = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for obj_id, content in enumerate(objects, start=1):
+        offsets.append(len(output))
+        output.extend(f"{obj_id} 0 obj\n{content}\nendobj\n".encode("latin-1"))
+
+    xref_offset = len(output)
+    output.extend(f"xref\n0 {len(objects) + 1}\n".encode("latin-1"))
+    output.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        output.extend(f"{offset:010d} 00000 n \n".encode("latin-1"))
+    output.extend(
+        (
+            f"trailer\n<< /Size {len(objects) + 1} /Root {catalog_id} 0 R >>\n"
+            f"startxref\n{xref_offset}\n%%EOF\n"
+        ).encode("latin-1")
+    )
+    PDF_FILE.write_bytes(output)
 
 
 def generate_report(rows, summary):
@@ -110,7 +312,8 @@ A implementacao usa as rotinas de comunicacao coletiva apresentadas no conteudo 
   processo `0`.
 - `MPI_Barrier`: faz todos os processos chegarem ao mesmo ponto antes do inicio da
   medicao de tempo.
-- `MPI_Reduce`: soma os checksums locais e produz um checksum global no processo `0`.
+- `MPI_Reduce`: soma os checksums locais e tambem agrega os tempos locais com
+  `MPI_MAX` para representar o processo mais lento.
 
 Tambem foram usadas as rotinas basicas ja vistas antes: `MPI_Init`,
 `MPI_Comm_rank`, `MPI_Comm_size`, `MPI_Wtime` e `MPI_Finalize`.
@@ -124,23 +327,38 @@ condicao.
 - Tamanhos de matriz testados: `{size_text}`
 - Processos MPI testados: `{", ".join(str(p) for p in processes)}`
 - Rodadas por configuracao: `{max(row['rep'] for row in rows)}`
-- Compilacao sequencial: `gcc -O3 -Wall -Wextra`
+- Compilacao sequencial: `gcc -O3 -Wall -Wextra -fopenmp`
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra`
-- Medicao de tempo: `MPI_Wtime` na versao MPI e `gettimeofday` na versao sequencial
+- Medicao de tempo: `MPI_Wtime` na versao MPI e `omp_get_wtime` na versao sequencial
 
-O speedup e a eficiencia foram calculados no script de coleta usando o tempo da versao
-sequencial como base. O checksum do vetor `y` foi comparado entre as versoes para
-validar os resultados.
+O checksum do vetor `y` foi comparado entre as versoes para validar os resultados.
+O tempo MPI reportado e o maior tempo local entre os processos, calculado com
+`MPI_Reduce` e `MPI_MAX`.
+
+Foram calculados dois tipos de speedup:
+
+- A linha `Sequencial` e a base da comparacao, portanto tem `speedup_seq = 1.00` e
+  `eficiencia_seq = 1.00`.
+- `speedup_seq = tempo_sequencial / tempo_mpi_total`
+- `speedup_mpi = tempo_mpi_1_processo / tempo_mpi_p_processos`
 
 ## Resultados
 
 {table(summary)}
 
+## Tempos parciais medios
+
+{timing_table(summary)}
+
 ## Graficos
 
-![Speedup](speedup.png)
+![Speedup contra sequencial](speedup.svg)
 
-![Eficiencia](eficiencia.png)
+![Eficiencia contra sequencial](eficiencia.svg)
+
+![Speedup interno MPI](speedup_mpi.svg)
+
+![Eficiencia interna MPI](eficiencia_mpi.svg)
 
 ## Melhores casos
 
@@ -159,12 +377,16 @@ parecido com o custo do proprio calculo. Nas matrizes maiores, a reducao de temp
 ficou mais visivel, pois cada processo recebeu uma parte relevante do trabalho e o
 calculo local passou a compensar melhor o custo das coletivas.
 
-Mesmo assim, o speedup em relacao ao programa sequencial ficou menor que 1 em todos
-os casos. Isso significa que a versao MPI ficou mais lenta que a sequencial usada
-como base. O motivo principal e que o programa sequencial apenas inicializa e calcula
-localmente, enquanto a versao MPI, alem do calculo, precisa distribuir o vetor,
-distribuir a matriz e reunir o resultado. Para esses tamanhos e nesse ambiente local,
-o custo dessas etapas extras foi maior que o ganho obtido ao dividir o calculo.
+O `speedup_seq` compara a estrategia MPI completa contra o programa sequencial, que
+aparece na tabela como a base `1.00`. Se uma linha MPI fica menor que 1, isso
+significa que a versao MPI completa ficou mais lenta que a sequencial. O motivo
+principal e que o programa sequencial mede apenas a multiplicacao local, enquanto a
+versao MPI tambem precisa distribuir o vetor, distribuir a matriz, reunir o
+resultado e sincronizar os processos.
+
+O `speedup_mpi` compara a propria implementacao MPI com 1 processo contra a mesma
+implementacao com mais processos. Esse valor mostra a escalabilidade interna da
+versao paralela, separada da comparacao com o programa sequencial.
 
 ### Efeito de cada funcao coletiva
 
@@ -220,11 +442,11 @@ dados sob responsabilidade das rotinas coletivas apresentadas no material. O gan
 desempenho depende do equilibrio entre quantidade de calculo local e custo das
 coletivas.
 
-Pelos testes, a paralelizacao com MPI trouxe melhora interna quando comparamos 1, 2 e
-4 processos MPI na mesma matriz, mas ainda nao superou a versao sequencial. A perda
-contra o sequencial acontece porque as coletivas acrescentam comunicacao,
-sincronizacao e copia de dados. O aumento de desempenho aparece quando o calculo
-local fica grande o suficiente para compensar parte desse custo.
+Pelos testes, a paralelizacao com MPI deve ser analisada em duas camadas. A primeira
+e a comparacao contra a versao sequencial (`speedup_seq`), que inclui todo o custo da
+estrategia MPI. A segunda e a escalabilidade interna da propria versao paralela
+(`speedup_mpi`), que mostra o efeito de aumentar o numero de processos mantendo a
+mesma organizacao MPI.
 
 Assim, a implementacao esta correta para demonstrar comunicacao coletiva basica: o
 vetor e transmitido uma vez para todos, a matriz e dividida por linhas, cada processo
@@ -244,17 +466,22 @@ antes da medicao.
 - Codigo MPI: `Tarefa-17/matvec_collective.c`
 - Coleta: `Tarefa-17/coletar_mpi.py`
 - CSV: `Tarefa-17/resultados/tarefa17_resultados.csv`
-- Graficos: `Tarefa-17/resultados/speedup.png` e
-  `Tarefa-17/resultados/eficiencia.png`
+- Graficos: `Tarefa-17/resultados/speedup.svg` e
+  `Tarefa-17/resultados/eficiencia.svg`
+- Graficos MPI: `Tarefa-17/resultados/speedup_mpi.svg` e
+  `Tarefa-17/resultados/eficiencia_mpi.svg`
 - Relatorio: `Tarefa-17/resultados/relatorio_tarefa17.md`
 """
     REPORT_FILE.write_text(report, encoding="utf-8")
+    write_simple_pdf(report)
     print(f"Relatorio salvo em: {REPORT_FILE}")
+    print(f"PDF salvo em: {PDF_FILE}")
 
 
 def main():
     rows = load_rows()
     summary = aggregate(rows)
+    write_charts(summary)
     generate_report(rows, summary)
 
 
