@@ -36,11 +36,6 @@ Se esse comando imprimir `RESULT elapsed=...`, o codigo esta pronto para a colet
 Use apenas em um no de computacao liberado para execucao interativa:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install matplotlib
-
 python coletar_afinidade.py \
   --max-threads 32 \
   --repeats 3 \
@@ -54,10 +49,13 @@ python coletar_afinidade.py \
 python gerar_relatorio.py
 ```
 
+O `matplotlib` e opcional. Se ele estiver instalado, o script tambem gera os PNGs.
+Se nao estiver, o CSV e o relatorio Markdown continuam sendo gerados.
+
 ## 5. Rodar com Slurm
 
 Edite `run_npad.sbatch` se precisar trocar particao, tempo ou numero de CPUs.
-Depois submeta:
+Depois submeta a partir de `Tarefa-13` ou da raiz do repositorio:
 
 ```bash
 sbatch run_npad.sbatch
@@ -84,8 +82,10 @@ Tarefa-13/resultados/slurm-*.err
 
 - Se `sem_bind` e pior que as politicas com `OMP_PROC_BIND`, ha indicio de custo de
   migracao de threads ou perda de localidade.
-- Se `close_cores` e melhor, a localidade de cache provavelmente ajuda o stencil.
-- Se `spread_cores` e melhor, distribuir threads pelo no provavelmente reduz disputa
-  por caches, nucleos fisicos ou banda de memoria.
-- Se `threads` for pior que `cores`, o uso de hyperthreading provavelmente nao ajuda
-  este kernel limitado por memoria.
+- Se `omp_close_cores` e melhor, a localidade de cache provavelmente ajuda o stencil.
+- Se `omp_spread_cores` e melhor, distribuir threads pelo no provavelmente reduz
+  disputa por caches, nucleos fisicos ou banda de memoria.
+- Se `omp_*_threads` for pior que `omp_*_cores`, o uso de hyperthreading
+  provavelmente nao ajuda este kernel limitado por memoria.
+- Compare `taskset_compact` e `taskset_spread` com as politicas OpenMP para separar
+  o efeito da mascara de CPUs do sistema operacional do efeito do runtime OpenMP.

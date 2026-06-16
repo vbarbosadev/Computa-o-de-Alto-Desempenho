@@ -32,7 +32,7 @@ def aggregate(rows):
             row["affinity"], row["affinity_description"], row["mode"],
             row["threads"], row["nx"], row["ny"], row["schedule"],
             row["chunk"], row["collapse"], row["omp_proc_bind"],
-            row["omp_places"], row["gomp_cpu_affinity"],
+            row["omp_places"], row["gomp_cpu_affinity"], row["taskset_cpus"],
         )
         groups[key].append(row)
 
@@ -55,6 +55,7 @@ def aggregate(rows):
             "omp_proc_bind": key[9],
             "omp_places": key[10],
             "gomp_cpu_affinity": key[11],
+            "taskset_cpus": key[12],
             "runs": len(values),
             "mean": statistics.mean(elapsed),
             "min": min(elapsed),
@@ -72,13 +73,14 @@ def aggregate(rows):
 
 def table_affinity(summary):
     lines = [
-        "|Afinidade|Threads|OMP_PROC_BIND|OMP_PLACES|Rodadas|Media (s)|Min (s)|Max (s)|Speedup|Eficiencia|",
-        "|---|---:|---|---|---:|---:|---:|---:|---:|---:|",
+        "|Afinidade|Threads|OMP_PROC_BIND|OMP_PLACES|GOMP/taskset|Rodadas|Media (s)|Min (s)|Max (s)|Speedup|Eficiencia|",
+        "|---|---:|---|---|---|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
+        explicit = row["gomp_cpu_affinity"] or row["taskset_cpus"] or "-"
         lines.append(
             f"|{row['affinity']}|{row['threads']}|{row['omp_proc_bind'] or '-'}|"
-            f"{row['omp_places'] or '-'}|{row['runs']}|{row['mean']:.6f}|"
+            f"{row['omp_places'] or '-'}|{explicit}|{row['runs']}|{row['mean']:.6f}|"
             f"{row['min']:.6f}|{row['max']:.6f}|{row['speedup']:.2f}|"
             f"{row['efficiency']:.2f}|"
         )
@@ -138,16 +140,21 @@ de afinidade. Isso isola melhor o efeito de `OMP_PROC_BIND`, `OMP_PLACES` e
 - Afinidades testadas: `{affinity_count}`
 - Rodadas coletadas: `{run_count}`
 - Compilacao: `gcc -O3 -march=native -fopenmp`
+- CPUs permitidas pelo escalonador/sistema: `{first['allowed_cpus']}`
 
 ## Politicas de afinidade
 
 - `sem_bind`: `OMP_PROC_BIND=false`, sem `OMP_PLACES` explicito.
-- `close_cores`: `OMP_PROC_BIND=close` e `OMP_PLACES=cores`.
-- `spread_cores`: `OMP_PROC_BIND=spread` e `OMP_PLACES=cores`.
-- `close_threads`: `OMP_PROC_BIND=close` e `OMP_PLACES=threads`.
-- `spread_threads`: `OMP_PROC_BIND=spread` e `OMP_PLACES=threads`.
-- `gomp_cpu_affinity`: usa `GOMP_CPU_AFFINITY` para listar explicitamente as CPUs
+- `omp_close_cores`: `OMP_PROC_BIND=close` e `OMP_PLACES=cores`.
+- `omp_spread_cores`: `OMP_PROC_BIND=spread` e `OMP_PLACES=cores`.
+- `omp_close_threads`: `OMP_PROC_BIND=close` e `OMP_PLACES=threads`.
+- `omp_spread_threads`: `OMP_PROC_BIND=spread` e `OMP_PLACES=threads`.
+- `gomp_compact`: usa `GOMP_CPU_AFFINITY` para listar explicitamente as CPUs
   disponiveis ao processo, uma extensao do runtime GNU OpenMP.
+- `taskset_compact`: usa a afinidade do Linux, via `taskset -c`, para limitar cada
+  execucao a uma lista compacta de CPUs.
+- `taskset_spread`: usa `taskset -c` com CPUs espalhadas dentro da mascara permitida
+  pelo escalonador.
 
 ## Validacao numerica
 
@@ -178,16 +185,19 @@ politica de afinidade.
 As politicas `close` tendem a favorecer localidade de cache, porque mantem threads em
 posicoes proximas. Isso pode ajudar quando o trabalho compartilha dados proximos na
 memoria. As politicas `spread` tendem a distribuir threads pelo no, o que pode reduzir
-competicao local por recursos de um mesmo nucleo fisico ou socket. Para este stencil
-2D, que faz poucos calculos por celula e muitos acessos a memoria, o resultado tende
-a depender fortemente da largura de banda de memoria e da topologia do no.
+competicao local por recursos de um mesmo nucleo fisico ou socket. Ja as politicas
+`taskset_*` fixam a mascara de CPUs no nivel do sistema operacional antes de o runtime
+OpenMP criar as threads. Para este stencil 2D, que faz poucos calculos por celula e
+muitos acessos a memoria, o resultado tende a depender fortemente da largura de banda
+de memoria e da topologia do no.
 
 Na Tarefa 12, o desempenho saturou depois de 8 a 16 threads. A Tarefa 13 verifica se
 essa saturacao muda quando o runtime fixa as threads em nucleos proximos, espalha as
 threads pelo no ou deixa o sistema operacional migrar threads. Se `sem_bind` for pior,
-isso indica custo de migracao e perda de localidade. Se `spread_cores` for melhor em
-altas contagens de threads, isso sugere que distribuir o acesso a memoria e aos caches
-do no foi mais importante que manter as threads proximas.
+isso indica custo de migracao e perda de localidade. Se `omp_spread_cores` ou
+`taskset_spread` forem melhores em altas contagens de threads, isso sugere que
+distribuir o acesso a memoria e aos caches do no foi mais importante que manter as
+threads proximas.
 
 ## Artefatos
 

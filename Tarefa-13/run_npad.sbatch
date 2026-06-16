@@ -9,19 +9,22 @@
 
 set -euo pipefail
 
-cd "$SLURM_SUBMIT_DIR"
+if [ -f "$SLURM_SUBMIT_DIR/coletar_afinidade.py" ]; then
+  cd "$SLURM_SUBMIT_DIR"
+elif [ -f "$SLURM_SUBMIT_DIR/Tarefa-13/coletar_afinidade.py" ]; then
+  cd "$SLURM_SUBMIT_DIR/Tarefa-13"
+else
+  echo "Erro: submeta este job da raiz do repositorio ou de Tarefa-13." >&2
+  exit 1
+fi
+
 mkdir -p resultados
 
 # Descomente e ajuste se o NPAD exigir carregamento explicito de compilador.
 # module purge
 # module load gcc
 
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install matplotlib
-
-python coletar_afinidade.py \
+python3 coletar_afinidade.py \
   --max-threads "${SLURM_CPUS_PER_TASK}" \
   --repeats 3 \
   --steps 1000 \
@@ -31,4 +34,4 @@ python coletar_afinidade.py \
   --collapse 1 \
   --affinities all
 
-python gerar_relatorio.py
+python3 gerar_relatorio.py

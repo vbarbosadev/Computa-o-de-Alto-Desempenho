@@ -21,31 +21,46 @@ AFFINITIES = {
         "env": {"OMP_PROC_BIND": "false"},
         "unset": ["OMP_PLACES", "GOMP_CPU_AFFINITY"],
     },
-    "close_cores": {
+    "omp_close_cores": {
         "description": "Threads proximas em nucleos",
         "env": {"OMP_PROC_BIND": "close", "OMP_PLACES": "cores"},
         "unset": ["GOMP_CPU_AFFINITY"],
     },
-    "spread_cores": {
+    "omp_spread_cores": {
         "description": "Threads espalhadas entre nucleos",
         "env": {"OMP_PROC_BIND": "spread", "OMP_PLACES": "cores"},
         "unset": ["GOMP_CPU_AFFINITY"],
     },
-    "close_threads": {
+    "omp_close_threads": {
         "description": "Threads proximas em hardware threads",
         "env": {"OMP_PROC_BIND": "close", "OMP_PLACES": "threads"},
         "unset": ["GOMP_CPU_AFFINITY"],
     },
-    "spread_threads": {
+    "omp_spread_threads": {
         "description": "Threads espalhadas entre hardware threads",
         "env": {"OMP_PROC_BIND": "spread", "OMP_PLACES": "threads"},
         "unset": ["GOMP_CPU_AFFINITY"],
     },
-    "gomp_cpu_affinity": {
-        "description": "Afinidade explicita do GNU OpenMP por lista de CPUs",
+    "gomp_compact": {
+        "description": "Afinidade explicita compacta do GNU OpenMP por lista de CPUs",
         "env": {},
         "unset": ["OMP_PROC_BIND", "OMP_PLACES"],
         "uses_gomp": True,
+        "cpu_order": "compact",
+    },
+    "taskset_compact": {
+        "description": "Afinidade do sistema operacional em CPUs contiguas",
+        "env": {"OMP_PROC_BIND": "false"},
+        "unset": ["OMP_PLACES", "GOMP_CPU_AFFINITY"],
+        "uses_taskset": True,
+        "cpu_order": "compact",
+    },
+    "taskset_spread": {
+        "description": "Afinidade do sistema operacional em CPUs espalhadas",
+        "env": {"OMP_PROC_BIND": "false"},
+        "unset": ["OMP_PLACES", "GOMP_CPU_AFFINITY"],
+        "uses_taskset": True,
+        "cpu_order": "spread",
     },
 }
 
@@ -139,9 +154,32 @@ def current_cpus(max_threads):
     return cpus[:max_threads]
 
 
-def gomp_cpu_list(cpus, threads):
-    selected = cpus[:threads]
+def select_cpus(cpus, threads, order):
+    if order == "spread" and threads > 1:
+        if threads >= len(cpus):
+            return cpus[:threads]
+        step = (len(cpus) - 1) / float(threads - 1)
+        indexes = []
+        for i in range(threads):
+            idx_value = int(round(i * step))
+            if idx_value not in indexes:
+                indexes.append(idx_value)
+        candidate = 0
+        while len(indexes) < threads:
+            if candidate not in indexes:
+                indexes.append(candidate)
+            candidate += 1
+        return [cpus[i] for i in indexes[:threads]]
+    return cpus[:threads]
+
+
+def cpu_list(cpus, threads, order):
+    selected = select_cpus(cpus, threads, order)
     return " ".join(str(cpu) for cpu in selected)
+
+
+def taskset_cpu_list(cpus, threads, order):
+    return ",".join(str(cpu) for cpu in select_cpus(cpus, threads, order))
 
 
 def affinity_env(base_env, affinity_name, threads, cpus):
@@ -153,14 +191,14 @@ def affinity_env(base_env, affinity_name, threads, cpus):
     for key, value in config.get("env", {}).items():
         env[key] = value
     if config.get("uses_gomp"):
-        env["GOMP_CPU_AFFINITY"] = gomp_cpu_list(cpus, threads)
+        env["GOMP_CPU_AFFINITY"] = cpu_list(cpus, threads, config.get("cpu_order", "compact"))
     return env
 
 
 def execute(args, affinity_name, threads, cpus):
+    config = AFFINITIES[affinity_name]
     env = affinity_env(os.environ, affinity_name, threads, cpus)
-    cmd_args = [
-        str(EXE),
+    cmd_args = [str(EXE),
         "--mode", args.mode,
         "--nx", str(args.n),
         "--ny", str(args.n),
@@ -172,12 +210,19 @@ def execute(args, affinity_name, threads, cpus):
         "--chunk", str(args.chunk),
         "--collapse", str(args.collapse),
     ]
+    taskset_cpus = ""
+    if config.get("uses_taskset"):
+        if not shutil.which("taskset"):
+            raise SystemExit("A afinidade via sistema operacional requer o comando taskset.")
+        taskset_cpus = taskset_cpu_list(cpus, threads, config.get("cpu_order", "compact"))
+        cmd_args = ["taskset", "-c", taskset_cpus, *cmd_args]
     row = parse_output(run(cmd_args, env=env))
     row["affinity"] = affinity_name
     row["affinity_description"] = AFFINITIES[affinity_name]["description"]
     row["omp_proc_bind"] = env.get("OMP_PROC_BIND", "")
     row["omp_places"] = env.get("OMP_PLACES", "")
     row["gomp_cpu_affinity"] = env.get("GOMP_CPU_AFFINITY", "")
+    row["taskset_cpus"] = taskset_cpus
     row["allowed_cpus"] = " ".join(str(cpu) for cpu in cpus)
     row["cells_per_thread"] = (row["nx"] * row["ny"]) / threads
     return row
@@ -203,7 +248,7 @@ def write_csv(rows):
         "rep", "affinity", "affinity_description", "mode", "threads",
         "nx", "ny", "steps", "cells_per_thread", "nu", "dt", "init", "u0",
         "schedule", "chunk", "collapse", "omp_proc_bind", "omp_places",
-        "gomp_cpu_affinity", "allowed_cpus", "elapsed", "speedup",
+        "gomp_cpu_affinity", "taskset_cpus", "allowed_cpus", "elapsed", "speedup",
         "efficiency", "relative_to_best_1t", "stable", "initial_min",
         "initial_max", "final_min", "final_max", "initial_l2", "final_l2",
         "initial_sum", "final_sum",
@@ -276,8 +321,15 @@ def make_plots(rows):
 def collect(args):
     OUT_DIR.mkdir(exist_ok=True)
     rows = []
-    threads_values = thread_list(args.max_threads)
     cpus = current_cpus(args.max_threads)
+    if not cpus:
+        raise SystemExit("Nenhuma CPU disponivel para o processo.")
+    if args.max_threads > len(cpus):
+        print(
+            f"Ajustando --max-threads de {args.max_threads} para {len(cpus)}, "
+            "que e o total de CPUs permitido ao processo."
+        )
+    threads_values = thread_list(min(args.max_threads, len(cpus)))
 
     if args.affinities == ["all"]:
         affinities = list(AFFINITIES)
