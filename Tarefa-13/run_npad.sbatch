@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH --partition=intel-128
 #SBATCH --job-name=tarefa13-affinity
 #SBATCH --output=resultados/slurm-%j.out
 #SBATCH --error=resultados/slurm-%j.err

@@ -605,3 +605,15 @@ int main(int argc, char **argv) {
     return 0;
 }
 ```
+
+# Script NPAD
+```
+#!/bin/bash
+#SBATCH --job-name=tarefa12-navier
+#SBATCH --output=resultados/slurm-%j.out
+#SBATCH --error=resultados/slurm-%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --time=01:00:00
+```
