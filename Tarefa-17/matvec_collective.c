@@ -107,9 +107,13 @@ int main(int argc, char **argv)
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    double inicio = MPI_Wtime();
+    double inicio_total = MPI_Wtime();
 
+    double inicio = MPI_Wtime();
     MPI_Bcast(x, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double tempo_bcast_local = MPI_Wtime() - inicio;
+
+    inicio = MPI_Wtime();
     MPI_Scatter(
         a,
         linhas_locais * n,
@@ -120,14 +124,13 @@ int main(int argc, char **argv)
         0,
         MPI_COMM_WORLD
     );
+    double tempo_scatter_local = MPI_Wtime() - inicio;
 
+    inicio = MPI_Wtime();
     multiplicar_local(a_local, x, y_local, linhas_locais, n);
+    double tempo_compute_local = MPI_Wtime() - inicio;
 
-    double checksum_local = 0.0;
-    for (int i = 0; i < linhas_locais; i++) {
-        checksum_local += y_local[i];
-    }
-
+    inicio = MPI_Wtime();
     MPI_Gather(
         y_local,
         linhas_locais,
@@ -138,20 +141,47 @@ int main(int argc, char **argv)
         0,
         MPI_COMM_WORLD
     );
+    double tempo_gather_local = MPI_Wtime() - inicio;
 
+    inicio = MPI_Wtime();
+    double checksum_local = 0.0;
+    for (int i = 0; i < linhas_locais; i++) {
+        checksum_local += y_local[i];
+    }
+ 
     double checksum = 0.0;
     MPI_Reduce(&checksum_local, &checksum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    double tempo_validacao_local = MPI_Wtime() - inicio;
 
-    double fim = MPI_Wtime();
+    double tempo_total_local = MPI_Wtime() - inicio_total;
+    double tempo_total = 0.0;
+    double tempo_bcast = 0.0;
+    double tempo_scatter = 0.0;
+    double tempo_compute = 0.0;
+    double tempo_gather = 0.0;
+    double tempo_validacao = 0.0;
+
+    MPI_Reduce(&tempo_total_local, &tempo_total, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_bcast_local, &tempo_bcast, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_scatter_local, &tempo_scatter, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_compute_local, &tempo_compute, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_gather_local, &tempo_gather, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_validacao_local, &tempo_validacao, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         printf(
-            "RESULT versao=mpi_collective processos=%d m=%d n=%d linhas_por_processo=%d tempo=%.9f checksum=%.6f\n",
+            "RESULT versao=mpi_collective processos=%d m=%d n=%d linhas_por_processo=%d "
+            "tempo=%.9f bcast=%.9f scatter=%.9f compute=%.9f gather=%.9f validacao=%.9f checksum=%.6f\n",
             size,
             m,
             n,
             linhas_locais,
-            fim - inicio,
+            tempo_total,
+            tempo_bcast,
+            tempo_scatter,
+            tempo_compute,
+            tempo_gather,
+            tempo_validacao,
             checksum
         );
     }

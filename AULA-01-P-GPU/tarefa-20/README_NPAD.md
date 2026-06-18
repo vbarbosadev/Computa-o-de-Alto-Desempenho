@@ -1,15 +1,50 @@
-# Tarefa 20 - heat CPU x GPU no NPAD
+# Tarefa 20 - heat CPU x GPU
 
 Esta pasta compara:
 
 - `heat.c`: versao CPU original;
 - `heat_target.c`: versao com OpenMP target para GPU.
 
+Esta e a copia usada como referencia para finalizar a Tarefa 20. Tambem existe
+uma copia em `Aula-P-GPU/tarefa-20`; no estado verificado em 2026-06-18, o
+codigo-fonte e os scripts sao equivalentes e diferem apenas nos caminhos escritos
+nos READMEs/scripts. A copia antiga nao foi removida para nao destruir trabalho
+de outros agentes ou do usuario.
+
 O script `run_npad.sbatch` compila as duas versoes com NVHPC, executa os
 mesmos tamanhos de entrada e grava um CSV em `resultados/`.
 
 O script `run_nsys_npad.sbatch` roda o Nsight Systems (`nsys`) para gerar o
 perfil de execucao da versao GPU, CPU ou das duas.
+
+## Status local
+
+No ambiente local usado em 2026-06-18 havia `gcc`, mas nao havia `nvc`, GPU
+NVIDIA configurada nem `nsys`. Por isso, a validacao local ficou limitada a:
+
+```bash
+mkdir -p AULA-01-P-GPU/tarefa-20/bin
+gcc -O2 -fopenmp AULA-01-P-GPU/tarefa-20/heat.c -o AULA-01-P-GPU/tarefa-20/bin/heat_cpu_gcc -lm
+gcc -O2 -fopenmp AULA-01-P-GPU/tarefa-20/heat_target.c -o AULA-01-P-GPU/tarefa-20/bin/heat_target_gcc -lm
+AULA-01-P-GPU/tarefa-20/bin/heat_cpu_gcc 100 10
+OMP_TARGET_OFFLOAD=DISABLED AULA-01-P-GPU/tarefa-20/bin/heat_target_gcc 100 10
+```
+
+As duas execucoes locais retornaram `Error (L2norm): 4.015950E-09` para
+`N=100` e `nsteps=10`. Isso valida a corretude basica do stencil e a
+compilacao host, mas nao valida offload para GPU. A comparacao CPU/GPU real e
+o perfil `nsys` dependem de um no com GPU, NVHPC e Nsight Systems.
+
+## Escopo da versao GPU
+
+`heat_target.c` segue o exercicio inicial do tutorial: o stencil usa
+`#pragma omp target map(tofrom: u[0:n*n], u_tmp[0:n*n])` e
+`#pragma omp loop collapse(2)`. Como o `map(tofrom)` fica dentro de `solve()`,
+as transferencias entre host e dispositivo podem ocorrer a cada passo de tempo.
+Isso e intencional para esta primeira comparacao, mas deve aparecer no `nsys`
+como custo de copia de memoria. Uma variante otimizada posterior deveria manter
+os arrays residentes no dispositivo com `target data` ou
+`target enter data`/`target exit data`.
 
 ## 1. Enviar os arquivos para o NPAD
 

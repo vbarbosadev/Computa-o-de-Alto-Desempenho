@@ -1,34 +1,3 @@
-
-/*
-** PROGRAM: heat equation solve
-**
-** PURPOSE: This program will explore use of an explicit
-**          finite difference method to solve the heat
-**          equation under a method of manufactured solution (MMS)
-**          scheme. The solution has been set to be a simple 
-**          function based on exponentials and trig functions.
-**
-**          A finite difference scheme is used on a 1000x1000 cube.
-**          A total of 0.5 units of time are simulated.
-**
-**          The MMS solution has been adapted from
-**          G.W. Recktenwald (2011). Finite difference approximations
-**          to the Heat Equation. Portland State University.
-**
-**
-** USAGE:   Run with two arguments:
-**          First is the number of cells.
-**          Second is the number of timesteps.
-**
-**          For example, with 100x100 cells and 10 steps:
-**
-**          ./heat 100 10
-**
-**
-** HISTORY: Written by Tom Deakin, Oct 2018
-**
-*/
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>

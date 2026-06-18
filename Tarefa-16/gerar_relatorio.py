@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 CSV_FILE = ROOT / "resultados" / "tarefa16_resultados.csv"
 REPORT_FILE = ROOT / "resultados" / "relatorio_tarefa16.md"
+ROOT_REPORT_FILE = ROOT.parent / "relatorios" / "relatorio_tarefa16.md"
 CODE_FILES = ["primos_seq.c", "leader_worker_primes.c"]
 
 
@@ -45,6 +46,7 @@ def aggregate(rows):
             "max_time": max(elapsed),
             "speedup": statistics.mean(speedups),
             "efficiency": statistics.mean(efficiencies),
+            "total_efficiency": statistics.mean(speedups) / key[2],
             "worker_tasks": values[0]["worker_tasks"],
         })
     return summary
@@ -52,14 +54,32 @@ def aggregate(rows):
 
 def table(summary):
     lines = [
-        "|Max|Tarefas|Processos|Trabalhadores|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Primos|",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|Max|Tarefas|Processos MPI|Trabalhadores|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Efic. trab.|Efic. proc.|Primos|",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
         lines.append(
             f"|{row['max']}|{row['tasks']}|{row['processes']}|{row['workers']}|"
             f"{row['runs']}|{row['seq_time']:.6f}|{row['mean']:.6f}|"
-            f"{row['speedup']:.2f}|{row['efficiency']:.2f}|{row['primes']}|"
+            f"{row['speedup']:.2f}|{row['efficiency']:.2f}|"
+            f"{row['total_efficiency']:.2f}|{row['primes']}|"
+        )
+    return "\n".join(lines)
+
+
+def baseline_table(summary):
+    by_max = {}
+    for row in summary:
+        by_max[row["max"]] = row["seq_time"]
+
+    lines = [
+        "|Max|Baseline sequencial (s)|Formula do speedup|Formula da efic. trab.|Formula da efic. proc.|",
+        "|---:|---:|---|---|---|",
+    ]
+    for maximum, seq_time in sorted(by_max.items()):
+        lines.append(
+            f"|{maximum}|{seq_time:.6f}|`T_seq / T_mpi`|"
+            "`speedup / trabalhadores`|`speedup / processos MPI`|"
         )
     return "\n".join(lines)
 
@@ -75,9 +95,23 @@ def best_lines(summary):
         lines.append(
             f"- Max={key[0]}, {key[1]} trabalhadores: {best['tasks']} tarefas, "
             f"media {best['mean']:.6f}s, speedup {best['speedup']:.2f}, "
-            f"eficiencia {best['efficiency']:.2f}."
+            f"eficiencia por trabalhador {best['efficiency']:.2f} e "
+            f"eficiencia por processo {best['total_efficiency']:.2f}."
         )
     return "\n".join(lines)
+
+
+def superlinear_lines(summary):
+    lines = []
+    for row in summary:
+        if row["efficiency"] > 1.0:
+            lines.append(
+                f"- Max={row['max']}, tarefas={row['tasks']}, "
+                f"{row['processes']} processos MPI/{row['workers']} trabalhadores: "
+                f"speedup {row['speedup']:.2f}, efic. trab. {row['efficiency']:.2f}, "
+                f"efic. proc. {row['total_efficiency']:.2f}."
+            )
+    return "\n".join(lines) if lines else "- Nenhum caso acima de `1.0`."
 
 
 def code_sections():
@@ -88,7 +122,7 @@ def code_sections():
     return "\n\n".join(sections)
 
 
-def generate_report(rows, summary):
+def generate_report(rows, summary, report_file, image_prefix, graph_dir_label):
     max_values = sorted({row["max"] for row in rows})
     task_values = sorted({row["tasks"] for row in rows})
     process_values = sorted({row["processes"] for row in rows})
@@ -116,8 +150,8 @@ A implementacao usa apenas os conceitos dos materiais 21, 22 e 23:
 - `MPI_ANY_TAG`, usado pelos trabalhadores para receber tarefa ou sinal de parada;
 - `MPI_Wtime` para medir o tempo da parte MPI.
 
-Nao foram usadas rotinas coletivas. O speedup e a eficiencia sao calculados no script
-Python a partir do tempo sequencial e do tempo MPI.
+Nao foram usadas rotinas coletivas. O speedup e as eficiencias sao calculados no
+script Python a partir do tempo sequencial e do tempo MPI.
 
 ## Como o escalonador evita deadlock
 
@@ -141,10 +175,28 @@ voltam a receber depois de concluir uma tarefa.
 - Valores maximos testados: `{", ".join(str(value) for value in max_values)}`
 - Quantidades de tarefas: `{", ".join(str(value) for value in task_values)}`
 - Processos MPI testados: `{", ".join(str(value) for value in process_values)}`
-- Trabalhadores: processos MPI menos o lider
+- Trabalhadores: processos MPI menos o lider; o rank `0` coordena e nao executa
+  diretamente os testes de primalidade
 - Rodadas por configuracao: `{max(row['rep'] for row in rows)}`
 - Compilacao sequencial: `gcc -O3 -Wall -Wextra -lm`
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra -lm`
+
+## Baseline e metricas
+
+O baseline e o programa sequencial `primos_seq.c`, medido uma vez para cada valor
+maximo e reaproveitado nas rodadas MPI correspondentes. O tempo MPI mede a execucao
+completa do escalonador lider-trabalhador, incluindo envio das tarefas, recebimento
+dos resultados e mensagens de parada.
+
+Neste relatorio ha duas eficiencias derivadas do mesmo speedup:
+
+- `Efic. trab.` divide o speedup pelo numero de trabalhadores (`processos MPI - 1`).
+  Essa e a metrica principal para este modelo, porque somente os trabalhadores
+  calculam primos; o lider coordena o escalonamento.
+- `Efic. proc.` divide o speedup pelo total de processos MPI. Ela e uma leitura mais
+  conservadora quando se quer contabilizar tambem o processo lider.
+
+{baseline_table(summary)}
 
 ## Resultados
 
@@ -152,11 +204,11 @@ voltam a receber depois de concluir uma tarefa.
 
 ## Graficos
 
-![Speedup max {max_values[0]}](tarefa16_speedup_max{max_values[0]}.png)
+![Speedup max {max_values[0]}]({image_prefix}speedup_max{max_values[0]}.png)
 
-![Speedup max {largest}](tarefa16_speedup_max{largest}.png)
+![Speedup max {largest}]({image_prefix}speedup_max{largest}.png)
 
-![Eficiencia](tarefa16_eficiencia.png)
+![Eficiencia]({image_prefix}eficiencia.png)
 
 ## Melhores casos
 
@@ -176,15 +228,29 @@ o trabalho. Por outro lado, tarefas demais tambem aumentam o numero de mensagens
 overhead de escalonamento.
 
 O speedup compara o tempo sequencial com o tempo MPI. A eficiencia divide esse
-speedup pelo numero de trabalhadores. Eficiencia proxima de `1.0` indicaria uso quase
-ideal dos trabalhadores; quedas indicam overhead de comunicacao, desequilibrio de
-carga ou custo do lider coordenando as tarefas.
+speedup pelo numero de trabalhadores, nao pelo numero total de processos MPI. Essa
+escolha segue a organizacao lider-trabalhador: com `4` processos MPI ha `3`
+trabalhadores fazendo computacao e `1` lider fazendo coordenacao. A coluna
+`Efic. proc.` foi incluida para deixar visivel a interpretacao alternativa que
+contabiliza tambem o lider no denominador.
 
-Em alguns casos com `3` trabalhadores a eficiencia ficou acima de `1.0`. Isso pode
-acontecer em medicoes pequenas por efeito de cache, variacao do sistema e diferenca
-entre executar um unico processo sequencial e dividir o intervalo em blocos menores.
-Por isso, esses valores devem ser lidos como indicio de bom aproveitamento, nao como
-garantia de ganho perfeitamente linear.
+Os valores acima de `1.0` aparecem inclusive com `1` trabalhador. Nesse caso nao ha
+paralelismo computacional entre trabalhadores; portanto a eficiencia maior que `1`
+nao deve ser interpretada como ganho paralelo ideal. Ela indica que o baseline
+sequencial e a execucao MPI nao tem exatamente o mesmo perfil de custo: a versao MPI
+divide o intervalo em subintervalos menores, pode mudar o comportamento de cache e de
+predicao de desvios, e as medicoes sao curtas o bastante para sofrerem variacao do
+sistema. Com `3` trabalhadores, esses mesmos efeitos podem se somar ao paralelismo e
+gerar speedup superlinear aparente.
+
+Casos em que a eficiencia por trabalhador ficou acima de `1.0`:
+
+{superlinear_lines(summary)}
+
+Assim, os casos superlineares devem ser lidos como resultado experimental dependente
+do baseline e do ambiente de medicao. Para uma avaliacao mais robusta seria adequado
+aumentar o tamanho do problema, usar mais repeticoes e reportar tambem mediana ou
+intervalos de variacao.
 
 ## Conclusao
 
@@ -209,19 +275,32 @@ entre trabalhadores.
 - Codigo MPI: `Tarefa-16/leader_worker_primes.c`
 - Coleta: `Tarefa-16/coletar_mpi.py`
 - CSV: `Tarefa-16/resultados/tarefa16_resultados.csv`
-- Graficos: `Tarefa-16/resultados/speedup_max{max_values[0]}.png`,
-  `Tarefa-16/resultados/speedup_max{largest}.png` e
-  `Tarefa-16/resultados/eficiencia.png`
-- Relatorio: `Tarefa-16/resultados/relatorio_tarefa16.md`
+- Graficos: `{graph_dir_label}/{image_prefix}speedup_max{max_values[0]}.png`,
+  `{graph_dir_label}/{image_prefix}speedup_max{largest}.png` e
+  `{graph_dir_label}/{image_prefix}eficiencia.png`
+- Relatorio: `{report_file.relative_to(ROOT.parent)}`
 """
-    REPORT_FILE.write_text(report, encoding="utf-8")
-    print(f"Relatorio salvo em: {REPORT_FILE}")
+    report_file.write_text(report, encoding="utf-8")
+    print(f"Relatorio salvo em: {report_file}")
 
 
 def main():
     rows = load_rows()
     summary = aggregate(rows)
-    generate_report(rows, summary)
+    generate_report(
+        rows,
+        summary,
+        REPORT_FILE,
+        image_prefix="",
+        graph_dir_label="Tarefa-16/resultados",
+    )
+    generate_report(
+        rows,
+        summary,
+        ROOT_REPORT_FILE,
+        image_prefix="tarefa16_",
+        graph_dir_label="relatorios",
+    )
 
 
 if __name__ == "__main__":

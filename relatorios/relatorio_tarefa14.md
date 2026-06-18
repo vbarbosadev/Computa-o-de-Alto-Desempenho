@@ -13,14 +13,16 @@ tempo e medido com `MPI_Wtime` durante varias trocas consecutivas.
 - `MPI_Bsend`: envio bloqueante com buffer anexado pelo usuario por `MPI_Buffer_attach`.
   A chamada depende de haver espaco no buffer fornecido para armazenar a mensagem.
 - `MPI_Rsend`: envio em modo ready. Ele so e correto se o recebimento correspondente
-  ja tiver sido iniciado. Nesta versao introdutoria, foram usadas mensagens simples
-  de controle com `MPI_Send` e `MPI_Recv` para indicar que o processo receptor esta
-  pronto para a troca.
+  ja tiver sido iniciado. Nesta versao, o receptor posta `MPI_Irecv` antes de avisar
+  o emissor; depois do aviso, o emissor chama `MPI_Rsend` e o receptor conclui a
+  operacao com `MPI_Wait`.
 - `MPI_Ssend`: envio bloqueante sincrono. A chamada so completa quando o processo
   receptor iniciou o recebimento correspondente, expondo melhor o custo de sincronizacao.
 
-Todos os programas usam `MPI_Recv` para receber a mensagem de ida e a resposta. O
-tempo e medido no processo 0, que participa de todas as trocas completas.
+As versoes `MPI_Send`, `MPI_Bsend` e `MPI_Ssend` usam `MPI_Recv` para receber a
+mensagem de ida e a resposta. A versao `MPI_Rsend` usa `MPI_Irecv` e `MPI_Wait` nos
+recebimentos que habilitam o envio em modo ready. O tempo e medido no processo 0, que
+participa de todas as trocas completas.
 
 ## Configuracao
 
@@ -32,8 +34,8 @@ tempo e medido no processo 0, que participa de todas as trocas completas.
 - Largura de banda efetiva: bytes enviados na ida e na volta divididos pelo tempo total
 
 O codigo foi mantido propositalmente simples, usando comunicacao ponto a ponto:
-`MPI_Send`, `MPI_Bsend`, `MPI_Rsend`, `MPI_Ssend`, `MPI_Recv` e `MPI_Wtime`. Nao foram
-usadas rotinas coletivas.
+`MPI_Send`, `MPI_Bsend`, `MPI_Rsend`, `MPI_Ssend`, `MPI_Recv`, `MPI_Irecv`,
+`MPI_Wait` e `MPI_Wtime`. Nao foram usadas rotinas coletivas.
 
 ## Resultados
 
@@ -141,9 +143,9 @@ banda efetiva se torna a metrica principal. Em `1 MB`, `MPI_Send`, `MPI_Rsend` e
 `15 GiB/s`, consistente com o custo adicional de copiar dados para o buffer anexado.
 
 O resultado de `MPI_Rsend` tambem e coerente: ele e pior nas mensagens pequenas por
-causa das mensagens de controle usadas para indicar que o receptor esta pronto, mas
-se aproxima das melhores bandas quando a mensagem e grande e esse overhead fica
-diluido.
+causa do `MPI_Irecv`, do `MPI_Wait` e das mensagens de controle usadas para garantir
+que o recebimento correspondente esteja postado, mas se aproxima das melhores bandas
+quando a mensagem e grande e esse overhead fica diluido.
 
 ## Conclusao
 
@@ -158,91 +160,10 @@ melhores em mensagens grandes. `MPI_Bsend` apresentou perda em mensagens grandes
 envolver bufferizacao explicita. `MPI_Rsend` exigiu cuidado especial na
 implementacao, pois so e correto quando o recebimento correspondente ja foi iniciado.
 
-## Codigos
+<!-- codigos-fonte-c-inicio -->
+## Codigos fonte C usados nos testes
 
-### `mpi_send.c`
-
-```c
-#include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#define TAG_IDA 10
-#define TAG_VOLTA 20
-
-static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
-{
-    for (int i = 1; i + 1 < argc; i++) {
-        if (strcmp(argv[i], opcao) == 0) {
-            return atoi(argv[i + 1]);
-        }
-    }
-    return padrao;
-}
-
-int main(int argc, char **argv)
-{
-    int rank;
-    int size;
-    int bytes;
-    int iteracoes;
-    char *mensagem;
-    MPI_Status status;
-
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    if (size != 2) {
-        if (rank == 0) {
-            printf("Execute com exatamente 2 processos: mpirun -np 2 ./mpi_send\n");
-        }
-        MPI_Finalize();
-        return 1;
-    }
-
-    bytes = ler_inteiro(argc, argv, "--bytes", 8);
-    iteracoes = ler_inteiro(argc, argv, "--iteracoes", 1000);
-    mensagem = malloc((size_t)bytes);
-    if (mensagem == NULL) {
-        printf("Erro ao alocar memoria.\n");
-        MPI_Finalize();
-        return 1;
-    }
-    memset(mensagem, 'A' + rank, (size_t)bytes);
-
-    double inicio = MPI_Wtime();
-
-    for (int i = 0; i < iteracoes; i++) {
-        if (rank == 0) {
-            MPI_Send(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
-            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
-        } else {
-            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
-            MPI_Send(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
-        }
-    }
-
-    double fim = MPI_Wtime();
-
-    if (rank == 0) {
-        printf(
-            "RESULT metodo=MPI_Send bytes=%d iteracoes=%d tempo_total=%.9f tempo_medio=%.12f\n",
-            bytes,
-            iteracoes,
-            fim - inicio,
-            (fim - inicio) / iteracoes
-        );
-    }
-
-    free(mensagem);
-    MPI_Finalize();
-    return 0;
-}
-```
-
-### `mpi_bsend.c`
+### `Tarefa-14/mpi_bsend.c`
 
 ```c
 #include <mpi.h>
@@ -333,7 +254,7 @@ int main(int argc, char **argv)
 }
 ```
 
-### `mpi_rsend.c`
+### `Tarefa-14/mpi_rsend.c`
 
 ```c
 #include <mpi.h>
@@ -364,6 +285,7 @@ int main(int argc, char **argv)
     int iteracoes;
     int pronto = 1;
     char *mensagem;
+    MPI_Request request;
     MPI_Status status;
 
     MPI_Init(&argc, &argv);
@@ -395,11 +317,13 @@ int main(int argc, char **argv)
             MPI_Recv(&pronto, 1, MPI_INT, 1, TAG_PRONTO_IDA, MPI_COMM_WORLD, &status);
             MPI_Rsend(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
 
+            MPI_Irecv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &request);
             MPI_Send(&pronto, 1, MPI_INT, 1, TAG_PRONTO_VOLTA, MPI_COMM_WORLD);
-            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+            MPI_Wait(&request, &status);
         } else {
+            MPI_Irecv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &request);
             MPI_Send(&pronto, 1, MPI_INT, 0, TAG_PRONTO_IDA, MPI_COMM_WORLD);
-            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+            MPI_Wait(&request, &status);
 
             MPI_Recv(&pronto, 1, MPI_INT, 0, TAG_PRONTO_VOLTA, MPI_COMM_WORLD, &status);
             MPI_Rsend(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
@@ -424,7 +348,89 @@ int main(int argc, char **argv)
 }
 ```
 
-### `mpi_ssend.c`
+### `Tarefa-14/mpi_send.c`
+
+```c
+#include <mpi.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define TAG_IDA 10
+#define TAG_VOLTA 20
+
+static int ler_inteiro(int argc, char **argv, const char *opcao, int padrao)
+{
+    for (int i = 1; i + 1 < argc; i++) {
+        if (strcmp(argv[i], opcao) == 0) {
+            return atoi(argv[i + 1]);
+        }
+    }
+    return padrao;
+}
+
+int main(int argc, char **argv)
+{
+    int rank;
+    int size;
+    int bytes;
+    int iteracoes;
+    char *mensagem;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (size != 2) {
+        if (rank == 0) {
+            printf("Execute com exatamente 2 processos: mpirun -np 2 ./mpi_send\n");
+        }
+        MPI_Finalize();
+        return 1;
+    }
+
+    bytes = ler_inteiro(argc, argv, "--bytes", 8);
+    iteracoes = ler_inteiro(argc, argv, "--iteracoes", 1000);
+    mensagem = malloc((size_t)bytes);
+    if (mensagem == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        MPI_Finalize();
+        return 1;
+    }
+    memset(mensagem, 'A' + rank, (size_t)bytes);
+
+    double inicio = MPI_Wtime();
+
+    for (int i = 0; i < iteracoes; i++) {
+        if (rank == 0) {
+            MPI_Send(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+        } else {
+            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+            MPI_Send(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);
+        }
+    }
+
+    double fim = MPI_Wtime();
+
+    if (rank == 0) {
+        printf(
+            "RESULT metodo=MPI_Send bytes=%d iteracoes=%d tempo_total=%.9f tempo_medio=%.12f\n",
+            bytes,
+            iteracoes,
+            fim - inicio,
+            (fim - inicio) / iteracoes
+        );
+    }
+
+    free(mensagem);
+    MPI_Finalize();
+    return 0;
+}
+```
+
+### `Tarefa-14/mpi_ssend.c`
 
 ```c
 #include <mpi.h>
@@ -505,3 +511,44 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
+
+<!-- codigos-fonte-c-fim -->
+
+<!-- scripts-sbatch-npad-inicio -->
+## Scripts sbatch do NPAD
+
+### `Tarefa-14/run_npad.sbatch`
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=tarefa14-mpi
+#SBATCH --output=resultados/slurm-%j.out
+#SBATCH --error=resultados/slurm-%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --cpus-per-task=1
+#SBATCH --time=00:30:00
+
+set -euo pipefail
+
+cd "$SLURM_SUBMIT_DIR"
+mkdir -p resultados
+
+# Descomente e ajuste se o NPAD exigir carregamento explicito de MPI.
+# module purge
+# module load openmpi
+# module load gcc
+
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install matplotlib
+
+python coletar_mpi.py \
+  --repeats 3 \
+  --sizes 8 16 32 64 128 256 512 1024 4096 16384 65536 262144 1048576
+
+python gerar_relatorio.py
+```
+
+<!-- scripts-sbatch-npad-fim -->

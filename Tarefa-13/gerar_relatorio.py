@@ -3,10 +3,13 @@ import statistics
 from collections import defaultdict
 from pathlib import Path
 
+from PIL import Image, ImageDraw, ImageFont
+
 
 ROOT = Path(__file__).resolve().parent
 CSV_FILE = ROOT / "resultados" / "tarefa13_afinidade.csv"
 REPORT_FILE = ROOT / "resultados" / "relatorio_tarefa13.md"
+RESULTS_DIR = ROOT / "resultados"
 
 
 def load_rows():
@@ -107,6 +110,103 @@ def best_overall(summary):
     return sorted(summary, key=lambda row: row["mean"])[0]
 
 
+def color_for_affinity(name):
+    palette = {
+        "sem_bind": "#2563eb",
+        "close_cores": "#16a34a",
+        "spread_cores": "#f97316",
+        "close_threads": "#7c3aed",
+        "spread_threads": "#dc2626",
+        "gomp_cpu_affinity": "#0891b2",
+    }
+    return palette.get(name, "#111827")
+
+
+def draw_line_chart(summary, metric, ylabel, title, output):
+    width = 1100
+    height = 680
+    margin_left = 90
+    margin_right = 260
+    margin_top = 70
+    margin_bottom = 90
+    plot_w = width - margin_left - margin_right
+    plot_h = height - margin_top - margin_bottom
+
+    image = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default()
+
+    by_affinity = defaultdict(list)
+    for row in summary:
+        by_affinity[row["affinity"]].append(row)
+    for values in by_affinity.values():
+        values.sort(key=lambda row: row["threads"])
+
+    threads = sorted({row["threads"] for row in summary})
+    values = [row[metric] for row in summary]
+    min_value = min(values)
+    max_value = max(values)
+    if metric == "mean":
+        min_value = 0.0
+    if max_value == min_value:
+        max_value = min_value + 1.0
+
+    def x_for(thread):
+        if len(threads) == 1:
+            return margin_left + plot_w / 2
+        idx = threads.index(thread)
+        return margin_left + idx * plot_w / (len(threads) - 1)
+
+    def y_for(value):
+        return margin_top + (max_value - value) * plot_h / (max_value - min_value)
+
+    draw.text((margin_left, 24), title, fill="#111827", font=font)
+    draw.line((margin_left, margin_top, margin_left, margin_top + plot_h), fill="#111827", width=2)
+    draw.line((margin_left, margin_top + plot_h, margin_left + plot_w, margin_top + plot_h), fill="#111827", width=2)
+
+    for i in range(6):
+        value = min_value + (max_value - min_value) * i / 5
+        y = y_for(value)
+        draw.line((margin_left, y, margin_left + plot_w, y), fill="#e5e7eb", width=1)
+        draw.text((12, y - 6), f"{value:.2f}", fill="#374151", font=font)
+
+    for thread in threads:
+        x = x_for(thread)
+        draw.line((x, margin_top + plot_h, x, margin_top + plot_h + 6), fill="#111827", width=1)
+        draw.text((x - 10, margin_top + plot_h + 16), str(thread), fill="#374151", font=font)
+
+    draw.text((margin_left + plot_w / 2 - 35, height - 38), "Threads", fill="#111827", font=font)
+    draw.text((12, 48), ylabel, fill="#111827", font=font)
+
+    for affinity, rows in sorted(by_affinity.items()):
+        color = color_for_affinity(affinity)
+        points = [(x_for(row["threads"]), y_for(row[metric])) for row in rows]
+        if len(points) > 1:
+            draw.line(points, fill=color, width=3)
+        for x, y in points:
+            draw.ellipse((x - 4, y - 4, x + 4, y + 4), fill=color, outline="white", width=1)
+
+    legend_x = margin_left + plot_w + 35
+    legend_y = margin_top
+    draw.text((legend_x, legend_y - 24), "Afinidade", fill="#111827", font=font)
+    for i, affinity in enumerate(sorted(by_affinity)):
+        y = legend_y + i * 26
+        color = color_for_affinity(affinity)
+        draw.rectangle((legend_x, y, legend_x + 14, y + 14), fill=color)
+        draw.text((legend_x + 22, y), affinity, fill="#374151", font=font)
+
+    image.save(output)
+
+
+def generate_charts(summary):
+    elapsed = RESULTS_DIR / "affinity_elapsed.png"
+    speedup = RESULTS_DIR / "affinity_speedup.png"
+    draw_line_chart(summary, "mean", "Tempo medio (s)", "Tarefa 13 - Tempo por afinidade", elapsed)
+    draw_line_chart(summary, "speedup", "Speedup", "Tarefa 13 - Speedup por afinidade", speedup)
+    print(f"Grafico salvo em: {elapsed}")
+    print(f"Grafico salvo em: {speedup}")
+
+
 def generate_report(rows, summary):
     first = rows[0]
     best = best_overall(summary)
@@ -205,6 +305,7 @@ do no foi mais importante que manter as threads proximas.
 def main():
     rows = load_rows()
     summary = aggregate(rows)
+    generate_charts(summary)
     generate_report(rows, summary)
 
 

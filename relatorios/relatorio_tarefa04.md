@@ -263,3 +263,112 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 ```
+
+<!-- codigos-fonte-c-inicio -->
+## Codigos fonte C usados nos testes
+
+### `Tarefa-04/compute_bound.c`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <omp.h>
+
+#define N       50000   /* iteracoes externas */
+#define INNER   10000   /* iteracoes internas de calculo intensivo */
+
+int main(int argc, char *argv[]) {
+    int num_threads = 1;
+    if (argc > 1) {
+        num_threads = atoi(argv[1]);
+        omp_set_num_threads(num_threads);
+    }
+
+    double *resultado = (double*)malloc(N * sizeof(double));
+    if (!resultado) {
+        fprintf(stderr, "Erro: falha na alocacao de memoria\n");
+        return 1;
+    }
+
+    double start = omp_get_wtime();
+
+    #pragma omp parallel for
+    for (int i = 0; i < N; i++) {
+        double temp = (double)i;
+        for (int j = 0; j < INNER; j++) {
+            temp = sin(temp) + cos(temp);
+        }
+        resultado[i] = temp;
+    }
+
+    double elapsed = omp_get_wtime() - start;
+
+    double gflops = ((double)N * INNER * 2.0) / elapsed / 1e9;
+
+    int actual_threads = omp_get_max_threads();
+    printf("RESULT threads=%d time=%.6f gflops=%.3f\n",
+           actual_threads, elapsed, gflops);
+
+    free(resultado);
+    return 0;
+}
+```
+
+### `Tarefa-04/memory_bound.c`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+#define N 100000000  
+
+int main(int argc, char *argv[]) {
+    int num_threads = 1;
+    if (argc > 1) {
+        num_threads = atoi(argv[1]);
+        omp_set_num_threads(num_threads);
+    }
+
+    double *A = (double*)malloc(N * sizeof(double));
+    double *B = (double*)malloc(N * sizeof(double));
+    double *C = (double*)malloc(N * sizeof(double));
+
+    if (!A || !B || !C) {
+        fprintf(stderr, "Erro: falha na alocacao de memoria\n");
+        return 1;
+    }
+
+    #pragma omp parallel for
+    for (long i = 0; i < N; i++) {
+        A[i] = 1.0;
+        B[i] = 2.0;
+    }
+
+    double start = omp_get_wtime();
+
+    #pragma omp parallel for
+    for (long i = 0; i < N; i++) {
+        C[i] = A[i] + B[i];
+    }
+
+    double elapsed = omp_get_wtime() - start;
+
+
+    int actual_threads = omp_get_max_threads();
+    printf("RESULT threads=%d time=%.6f\n",
+           actual_threads, elapsed);
+
+    free(A); free(B); free(C);
+    return 0;
+}
+```
+
+<!-- codigos-fonte-c-fim -->
+
+<!-- scripts-sbatch-npad-inicio -->
+## Scripts sbatch do NPAD
+
+Nao ha script `sbatch` do NPAD associado a esta tarefa no repositorio.
+<!-- scripts-sbatch-npad-fim -->

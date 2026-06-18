@@ -119,16 +119,29 @@ int main(int argc, char **argv)
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    double inicio = MPI_Wtime();
+    double t0 = MPI_Wtime();
 
     MPI_Scatter(x, colunas_locais, MPI_DOUBLE, x_local, colunas_locais, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double t1 = MPI_Wtime();
     MPI_Scatter(a_envio, 1, tipo_colunas, a_local, m * colunas_locais, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double t2 = MPI_Wtime();
 
     calcular_parcial(a_local, x_local, y_parcial, m, colunas_locais);
+    double t3 = MPI_Wtime();
 
     MPI_Reduce(y_parcial, y, m, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    double t4 = MPI_Wtime();
 
-    double fim = MPI_Wtime();
+    double tempos_locais[5] = {
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        t4 - t3,
+        t4 - t0,
+    };
+    double tempos_max[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+
+    MPI_Reduce(tempos_locais, tempos_max, 5, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         double checksum = 0.0;
@@ -136,13 +149,21 @@ int main(int argc, char **argv)
             checksum += y[i];
         }
         printf(
-            "RESULT versao=cols_vector processos=%d m=%d n=%d colunas_por_processo=%d tempo=%.9f checksum=%.6f\n",
+            "RESULT versao=cols_vector processos=%d m=%d n=%d colunas_por_processo=%d "
+            "tempo=%.9f checksum=%.6f tempo_rank0=%.9f tempo_max=%.9f "
+            "scatter_x_max=%.9f scatter_a_max=%.9f compute_max=%.9f reduce_max=%.9f\n",
             size,
             m,
             n,
             colunas_locais,
-            fim - inicio,
-            checksum
+            tempos_max[4],
+            checksum,
+            tempos_locais[4],
+            tempos_max[4],
+            tempos_max[0],
+            tempos_max[1],
+            tempos_max[2],
+            tempos_max[3]
         );
     }
 

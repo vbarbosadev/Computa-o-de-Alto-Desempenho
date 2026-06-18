@@ -31,7 +31,7 @@ VERSIONS = {
 SEQ_RE = re.compile(r"RESULT versao=seq m=(\d+) n=(\d+) tempo=([0-9.eE+-]+) checksum=([0-9.eE+-]+)")
 MPI_RE = re.compile(
     r"RESULT versao=(cols_vector|cols_resized) processos=(\d+) m=(\d+) n=(\d+) "
-    r"colunas_por_processo=(\d+) tempo=([0-9.eE+-]+) checksum=([0-9.eE+-]+)"
+    r"colunas_por_processo=(\d+) tempo=([0-9.eE+-]+) checksum=([0-9.eE+-]+)(.*)"
 )
 
 
@@ -89,7 +89,7 @@ def parse_mpi(output):
     match = MPI_RE.search(output)
     if match is None:
         raise ValueError("Saida MPI inesperada:\n" + output)
-    return {
+    result = {
         "version": match.group(1),
         "processes": int(match.group(2)),
         "m": int(match.group(3)),
@@ -98,6 +98,11 @@ def parse_mpi(output):
         "elapsed": float(match.group(6)),
         "checksum": float(match.group(7)),
     }
+    extras = dict(re.findall(r"([a-zA-Z0-9_]+)=([0-9.eE+-]+)", match.group(8)))
+    for key in ["tempo_rank0", "tempo_max", "scatter_x_max", "scatter_a_max", "compute_max", "reduce_max"]:
+        if key in extras:
+            result[key] = float(extras[key])
+    return result
 
 
 def execute_seq(m, n):
@@ -131,8 +136,15 @@ def write_csv(rows):
         "seq_time",
         "elapsed",
         "speedup",
+        "mpi_internal_speedup",
         "efficiency",
         "checksum",
+        "tempo_rank0",
+        "tempo_max",
+        "scatter_x_max",
+        "scatter_a_max",
+        "compute_max",
+        "reduce_max",
     ]
     with CSV_FILE.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fields)
@@ -148,6 +160,22 @@ def best_by_group(rows):
         if key not in best or row["elapsed"] < best[key]["elapsed"]:
             best[key] = row
     return sorted(best.values(), key=lambda row: (row["version"], row["m"], row["n"], row["processes"]))
+
+
+def add_internal_speedup(rows):
+    baselines = {}
+    for row in rows:
+        if row["processes"] == 1:
+            baselines.setdefault((row["version"], row["m"], row["n"]), []).append(row["elapsed"])
+
+    baseline_mean = {
+        key: sum(values) / len(values)
+        for key, values in baselines.items()
+    }
+
+    for row in rows:
+        baseline = baseline_mean.get((row["version"], row["m"], row["n"]))
+        row["mpi_internal_speedup"] = baseline / row["elapsed"] if baseline else ""
 
 
 def make_plots(rows):
@@ -246,6 +274,12 @@ def collect(args):
                         "speedup": speedup,
                         "efficiency": efficiency,
                         "checksum": result["checksum"],
+                        "tempo_rank0": result.get("tempo_rank0", ""),
+                        "tempo_max": result.get("tempo_max", ""),
+                        "scatter_x_max": result.get("scatter_x_max", ""),
+                        "scatter_a_max": result.get("scatter_a_max", ""),
+                        "compute_max": result.get("compute_max", ""),
+                        "reduce_max": result.get("reduce_max", ""),
                     }
                     rows.append(row)
                     print(
@@ -253,6 +287,7 @@ def collect(args):
                         f"tempo={result['elapsed']:.6f}s speedup={speedup:.2f}"
                     )
 
+    add_internal_speedup(rows)
     write_csv(rows)
     make_plots(rows)
 

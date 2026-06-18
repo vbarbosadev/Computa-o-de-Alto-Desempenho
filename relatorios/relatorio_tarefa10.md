@@ -181,3 +181,389 @@ reducao classica.
 - Resumo JSON: `dados/tarefa10_summary.json`
 - Grafico: `relatorios/tarefa10_resultados.png`
 - Relatorio: `relatorios/relatorio_tarefa10.md`
+
+<!-- codigos-fonte-c-inicio -->
+## Codigos fonte C usados nos testes
+
+### `Tarefa-10/pi_randr_private_critical.c`
+
+```c
+/*
+ * Tarefa 10 - Versao 3: rand_r() + contador privado + critical final
+ *
+ * Cada thread acumula acertos em local_count e entra em critical apenas
+ * uma vez para combinar o resultado no contador global.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_private_critical pi_randr_private_critical.c -lm
+ * Executar: ./pi_randr_private_critical [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#include "portable_rand_r.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) {
+        N = atol(argv[1]);
+    }
+
+    long count       = 0;
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        unsigned int seed = (unsigned int)(time(NULL))
+                          ^ (unsigned int)(omp_get_thread_num() * 2654435761u);
+        long local_count = 0;
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / (double)RAND_MAX;
+            double y = (double)rand_r(&seed) / (double)RAND_MAX;
+            if (x * x + y * y <= 1.0) {
+                local_count++;
+            }
+        }
+
+        #pragma omp critical
+        count += local_count;
+    }
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=private_critical n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-10/pi_randr_private_vector.c`
+
+```c
+/*
+ * Tarefa 10 - Versao 4: rand_r() + vetor compartilhado hits[tid]
+ *
+ * Cada thread atualiza uma posicao propria do vetor compartilhado.
+ * Nao ha corrida de dados, mas ha potencial de false sharing entre
+ * posicoes adjacentes ocupando o mesmo cache line.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_private_vector pi_randr_private_vector.c -lm
+ * Executar: ./pi_randr_private_vector [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#include "portable_rand_r.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) {
+        N = atol(argv[1]);
+    }
+
+    int max_threads = omp_get_max_threads();
+    long *hits      = (long *)calloc((size_t)max_threads, sizeof(long));
+    if (hits == NULL) {
+        fprintf(stderr, "Falha ao alocar vetor de hits.\n");
+        return 1;
+    }
+
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+        unsigned int seed = (unsigned int)(time(NULL))
+                          ^ (unsigned int)(tid * 2654435761u);
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / (double)RAND_MAX;
+            double y = (double)rand_r(&seed) / (double)RAND_MAX;
+            if (x * x + y * y <= 1.0) {
+                hits[tid]++;
+            }
+        }
+    }
+
+    long count = 0;
+    for (int t = 0; t < threads_used; t++) {
+        count += hits[t];
+    }
+    free(hits);
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=private_vector n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-10/pi_randr_reduction.c`
+
+```c
+/*
+ * Tarefa 10 - Versao 5: rand_r() + reduction(+:count)
+ *
+ * OpenMP gera acumuladores privados e combina os resultados ao final
+ * do loop, sem necessidade de critical nem atomic no codigo-fonte.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_reduction pi_randr_reduction.c -lm
+ * Executar: ./pi_randr_reduction [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#include "portable_rand_r.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) {
+        N = atol(argv[1]);
+    }
+
+    long count       = 0;
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        unsigned int seed = (unsigned int)(time(NULL))
+                          ^ (unsigned int)(omp_get_thread_num() * 2654435761u);
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static) reduction(+:count)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / (double)RAND_MAX;
+            double y = (double)rand_r(&seed) / (double)RAND_MAX;
+            if (x * x + y * y <= 1.0) {
+                count++;
+            }
+        }
+    }
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=reduction n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-10/pi_randr_shared_atomic.c`
+
+```c
+/*
+ * Tarefa 10 - Versao 2: rand_r() + contador compartilhado + atomic
+ *
+ * Cada acerto executa count++ protegido por #pragma omp atomic.
+ * O objetivo e comparar o custo de sincronizacao simples de atomic
+ * contra a serializacao mais pesada de critical.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_shared_atomic pi_randr_shared_atomic.c -lm
+ * Executar: ./pi_randr_shared_atomic [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#include "portable_rand_r.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) {
+        N = atol(argv[1]);
+    }
+
+    long count       = 0;
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        unsigned int seed = (unsigned int)(time(NULL))
+                          ^ (unsigned int)(omp_get_thread_num() * 2654435761u);
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / (double)RAND_MAX;
+            double y = (double)rand_r(&seed) / (double)RAND_MAX;
+            if (x * x + y * y <= 1.0) {
+                #pragma omp atomic
+                count++;
+            }
+        }
+    }
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=shared_atomic n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-10/pi_randr_shared_critical.c`
+
+```c
+/*
+ * Tarefa 10 - Versao 1: rand_r() + contador compartilhado + critical
+ *
+ * Cada acerto executa count++ dentro de uma regiao critica anonima.
+ * Esta versao maximiza a serializacao no contador compartilhado e serve
+ * como baseline de maior custo de sincronizacao.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_shared_critical pi_randr_shared_critical.c -lm
+ * Executar: ./pi_randr_shared_critical [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#include "portable_rand_r.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) {
+        N = atol(argv[1]);
+    }
+
+    long count       = 0;
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        unsigned int seed = (unsigned int)(time(NULL))
+                          ^ (unsigned int)(omp_get_thread_num() * 2654435761u);
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / (double)RAND_MAX;
+            double y = (double)rand_r(&seed) / (double)RAND_MAX;
+            if (x * x + y * y <= 1.0) {
+                #pragma omp critical
+                count++;
+            }
+        }
+    }
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=shared_critical n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-10/portable_rand_r.h`
+
+```c
+/*
+ * Compatibilidade para ambientes onde rand_r() nao esta disponivel
+ * (como algumas distribuicoes MinGW no Windows).
+ */
+
+#ifndef TAREFA10_PORTABLE_RAND_R_H
+#define TAREFA10_PORTABLE_RAND_R_H
+
+#if defined(_WIN32)
+static unsigned int portable_rand_r(unsigned int *seed) {
+    *seed = (*seed * 1103515245u) + 12345u;
+    return (*seed / 65536u) % 32768u;
+}
+
+#define rand_r portable_rand_r
+#endif
+
+#endif
+```
+
+<!-- codigos-fonte-c-fim -->
+
+<!-- scripts-sbatch-npad-inicio -->
+## Scripts sbatch do NPAD
+
+Nao ha script `sbatch` do NPAD associado a esta tarefa no repositorio.
+<!-- scripts-sbatch-npad-fim -->

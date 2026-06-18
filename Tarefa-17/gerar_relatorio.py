@@ -16,8 +16,38 @@ def load_rows():
         for row in csv.DictReader(f):
             for key in ["rep", "m", "n", "processes", "rows_per_process"]:
                 row[key] = int(row[key])
-            for key in ["seq_time", "elapsed", "speedup", "efficiency", "checksum"]:
-                row[key] = float(row[key])
+            for key in [
+                "seq_time",
+                "elapsed",
+                "speedup",
+                "efficiency",
+                "speedup_seq",
+                "efficiency_seq",
+                "speedup_mpi",
+                "efficiency_mpi",
+                "bcast_time",
+                "scatter_time",
+                "compute_time",
+                "gather_time",
+                "validation_time",
+                "checksum",
+            ]:
+                if key in row and row[key] != "":
+                    row[key] = float(row[key])
+                elif key in row:
+                    row[key] = None
+            row.setdefault("speedup_seq", row["speedup"])
+            row.setdefault("efficiency_seq", row["efficiency"])
+            for key in [
+                "speedup_mpi",
+                "efficiency_mpi",
+                "bcast_time",
+                "scatter_time",
+                "compute_time",
+                "gather_time",
+                "validation_time",
+            ]:
+                row.setdefault(key, None)
             rows.append(row)
     return rows
 
@@ -30,8 +60,10 @@ def aggregate(rows):
     summary = []
     for key, values in sorted(groups.items()):
         elapsed = [row["elapsed"] for row in values]
-        speedups = [row["speedup"] for row in values]
-        efficiencies = [row["efficiency"] for row in values]
+        speedups_seq = [row["speedup_seq"] for row in values]
+        efficiencies_seq = [row["efficiency_seq"] for row in values]
+        speedups_mpi = [row["speedup_mpi"] for row in values if row["speedup_mpi"] is not None]
+        efficiencies_mpi = [row["efficiency_mpi"] for row in values if row["efficiency_mpi"] is not None]
         summary.append({
             "m": key[0],
             "n": key[1],
@@ -42,23 +74,46 @@ def aggregate(rows):
             "mean": statistics.mean(elapsed),
             "min": min(elapsed),
             "max": max(elapsed),
-            "speedup": statistics.mean(speedups),
-            "efficiency": statistics.mean(efficiencies),
+            "speedup_seq": statistics.mean(speedups_seq),
+            "efficiency_seq": statistics.mean(efficiencies_seq),
+            "speedup_mpi": statistics.mean(speedups_mpi) if speedups_mpi else None,
+            "efficiency_mpi": statistics.mean(efficiencies_mpi) if efficiencies_mpi else None,
+            "bcast_time": mean_optional(values, "bcast_time"),
+            "scatter_time": mean_optional(values, "scatter_time"),
+            "compute_time": mean_optional(values, "compute_time"),
+            "gather_time": mean_optional(values, "gather_time"),
+            "validation_time": mean_optional(values, "validation_time"),
             "checksum": values[0]["checksum"],
         })
     return summary
 
 
+def mean_optional(rows, key):
+    values = [row[key] for row in rows if row[key] is not None]
+    if not values:
+        return None
+    return statistics.mean(values)
+
+
+def fmt_optional(value, digits=6):
+    if value is None:
+        return "-"
+    return f"{value:.{digits}f}"
+
+
 def table(summary):
     lines = [
-        "|M|N|Processos|Linhas/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Checksum|",
-        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|M|N|Proc.|Linhas/proc.|Rodadas|Seq calc. (s)|MPI total max (s)|Bcast|Scatter|Calc. local|Gather|Validacao|Speedup seq|Speedup MPI|Ef. MPI|",
+        "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
         lines.append(
             f"|{row['m']}|{row['n']}|{row['processes']}|{row['rows_per_process']}|"
             f"{row['runs']}|{row['seq_time']:.6f}|{row['mean']:.6f}|"
-            f"{row['speedup']:.2f}|{row['efficiency']:.2f}|{row['checksum']:.2f}|"
+            f"{fmt_optional(row['bcast_time'])}|{fmt_optional(row['scatter_time'])}|"
+            f"{fmt_optional(row['compute_time'])}|{fmt_optional(row['gather_time'])}|"
+            f"{fmt_optional(row['validation_time'])}|{row['speedup_seq']:.2f}|"
+            f"{fmt_optional(row['speedup_mpi'], 2)}|{fmt_optional(row['efficiency_mpi'], 2)}|"
         )
     return "\n".join(lines)
 
@@ -73,7 +128,8 @@ def best_lines(summary):
         best = min(groups[key], key=lambda row: row["mean"])
         lines.append(
             f"- Matriz {key[0]}x{key[1]}: melhor tempo com {best['processes']} processos, "
-            f"media {best['mean']:.6f}s, speedup {best['speedup']:.2f}."
+            f"media {best['mean']:.6f}s, speedup sequencial {best['speedup_seq']:.2f} "
+            f"e speedup MPI interno {fmt_optional(best['speedup_mpi'], 2)}."
         )
     return "\n".join(lines)
 
@@ -90,6 +146,9 @@ def generate_report(rows, summary):
     sizes = sorted({(row["m"], row["n"]) for row in rows})
     processes = sorted({row["processes"] for row in rows})
     size_text = ", ".join(f"{m}x{n}" for m, n in sizes)
+    speedup_mpi_graph = ""
+    if (ROOT / "resultados" / "speedup_mpi.png").exists():
+        speedup_mpi_graph = "\n![Speedup MPI interno](speedup_mpi.png)\n"
     report = f"""# Tarefa 17 - Multiplicacao matriz-vetor com MPI coletivo
 
 ## Objetivo
@@ -110,7 +169,8 @@ A implementacao usa as rotinas de comunicacao coletiva apresentadas no conteudo 
   processo `0`.
 - `MPI_Barrier`: faz todos os processos chegarem ao mesmo ponto antes do inicio da
   medicao de tempo.
-- `MPI_Reduce`: soma os checksums locais e produz um checksum global no processo `0`.
+- `MPI_Reduce`: soma os checksums locais e tambem calcula os tempos maximos entre
+  ranks com `MPI_MAX`.
 
 Tambem foram usadas as rotinas basicas ja vistas antes: `MPI_Init`,
 `MPI_Comm_rank`, `MPI_Comm_size`, `MPI_Wtime` e `MPI_Finalize`.
@@ -128,9 +188,19 @@ condicao.
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra`
 - Medicao de tempo: `MPI_Wtime` na versao MPI e `gettimeofday` na versao sequencial
 
-O speedup e a eficiencia foram calculados no script de coleta usando o tempo da versao
-sequencial como base. O checksum do vetor `y` foi comparado entre as versoes para
-validar os resultados.
+Na versao sequencial, o tempo medido comeca depois da inicializacao de `A` e `x` e
+mede apenas o laco de calculo de `y = A*x`. Na versao MPI, o tempo total mede a
+estrategia paralela completa: `MPI_Bcast`, `MPI_Scatter`, calculo local,
+`MPI_Gather` e validacao por checksum. Por isso a tabela separa dois indicadores:
+
+- `Speedup seq`: `tempo_sequencial_de_calculo / tempo_total_MPI`.
+- `Speedup MPI`: `tempo_MPI_com_1_processo / tempo_MPI_com_P_processos`.
+
+O tempo total MPI e os tempos parciais sao reduzidos com `MPI_Reduce(MPI_MAX)`,
+reportando o rank mais lento. O checksum do vetor `y` foi comparado entre as versoes
+para validar os resultados. Os tempos parciais ajudam a identificar gargalos, mas
+nao devem ser somados para reconstruir o total, pois o maximo de cada fase pode vir
+de ranks diferentes.
 
 ## Resultados
 
@@ -139,6 +209,8 @@ validar os resultados.
 ## Graficos
 
 ![Speedup](speedup.png)
+
+{speedup_mpi_graph}
 
 ![Eficiencia](eficiencia.png)
 
@@ -161,10 +233,12 @@ calculo local passou a compensar melhor o custo das coletivas.
 
 Mesmo assim, o speedup em relacao ao programa sequencial ficou menor que 1 em todos
 os casos. Isso significa que a versao MPI ficou mais lenta que a sequencial usada
-como base. O motivo principal e que o programa sequencial apenas inicializa e calcula
-localmente, enquanto a versao MPI, alem do calculo, precisa distribuir o vetor,
-distribuir a matriz e reunir o resultado. Para esses tamanhos e nesse ambiente local,
-o custo dessas etapas extras foi maior que o ganho obtido ao dividir o calculo.
+como base. Essa comparacao e intencionalmente conservadora: o sequencial mede so o
+calculo, enquanto o tempo MPI total inclui comunicacao, reuniao do resultado e
+validacao. O speedup MPI interno, por outro lado, isola melhor a escalabilidade da
+implementacao coletiva ao comparar a propria versao MPI com 1 processo contra 2 e 4
+processos. Para esses tamanhos e nesse ambiente local, o custo das etapas extras foi
+maior que o ganho obtido ao dividir o calculo.
 
 ### Efeito de cada funcao coletiva
 
@@ -193,12 +267,12 @@ Mesmo assim, ela adiciona uma sincronizacao natural ao final: o processo `0` so 
 resultado completo depois que todos os processos terminam seus calculos locais e
 enviam suas partes.
 
-`MPI_Reduce` foi usado para validar o resultado. Cada processo calcula um checksum
-local somando os valores do seu bloco de `y`. Em seguida, `MPI_Reduce` aplica a soma
-e entrega o checksum global ao processo `0`. Essa chamada movimenta apenas um valor
-por processo, entao seu custo e bem menor que o de distribuir a matriz com
-`MPI_Scatter`. Mesmo assim, ela tambem e uma coletiva e acrescenta sincronizacao no
-fim da execucao medida.
+`MPI_Reduce` foi usado de duas formas. Para validar o resultado, cada processo
+calcula um checksum local somando os valores do seu bloco de `y`; em seguida,
+`MPI_Reduce(MPI_SUM)` entrega o checksum global ao processo `0`. Para medir tempo,
+cada rank calcula suas duracoes locais e `MPI_Reduce(MPI_MAX)` reporta o maior valor,
+isto e, o tempo observado pelo rank mais lento. Essa escolha evita que a analise
+dependa apenas do tempo do rank `0`.
 
 A eficiencia mede quanto do ganho teorico foi aproveitado. Ela caiu quando o numero
 de processos aumentou porque o trabalho local por processo diminuiu, mas os custos de

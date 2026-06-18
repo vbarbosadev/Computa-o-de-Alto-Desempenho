@@ -21,7 +21,9 @@ MPI_EXE = BUILD_DIR / "matvec_collective"
 SEQ_RE = re.compile(r"RESULT versao=seq m=(\d+) n=(\d+) tempo=([0-9.eE+-]+) checksum=([0-9.eE+-]+)")
 MPI_RE = re.compile(
     r"RESULT versao=mpi_collective processos=(\d+) m=(\d+) n=(\d+) "
-    r"linhas_por_processo=(\d+) tempo=([0-9.eE+-]+) checksum=([0-9.eE+-]+)"
+    r"linhas_por_processo=(\d+) tempo=([0-9.eE+-]+) "
+    r"bcast=([0-9.eE+-]+) scatter=([0-9.eE+-]+) compute=([0-9.eE+-]+) "
+    r"gather=([0-9.eE+-]+) validacao=([0-9.eE+-]+) checksum=([0-9.eE+-]+)"
 )
 
 
@@ -77,7 +79,12 @@ def parse_mpi(output):
         "n": int(match.group(3)),
         "rows_per_process": int(match.group(4)),
         "elapsed": float(match.group(5)),
-        "checksum": float(match.group(6)),
+        "bcast_time": float(match.group(6)),
+        "scatter_time": float(match.group(7)),
+        "compute_time": float(match.group(8)),
+        "gather_time": float(match.group(9)),
+        "validation_time": float(match.group(10)),
+        "checksum": float(match.group(11)),
     }
 
 
@@ -112,6 +119,15 @@ def write_csv(rows):
         "elapsed",
         "speedup",
         "efficiency",
+        "speedup_seq",
+        "efficiency_seq",
+        "speedup_mpi",
+        "efficiency_mpi",
+        "bcast_time",
+        "scatter_time",
+        "compute_time",
+        "gather_time",
+        "validation_time",
         "checksum",
     ]
     with CSV_FILE.open("w", newline="", encoding="utf-8") as f:
@@ -156,6 +172,24 @@ def make_plots(rows):
     plt.legend()
     plt.tight_layout()
     plt.savefig(OUT_DIR / "speedup.png", dpi=160)
+
+    if all(row["speedup_mpi"] != "" for row in best):
+        plt.figure(figsize=(8, 5))
+        for m, n in sizes:
+            data = [row for row in best if row["m"] == m and row["n"] == n]
+            plt.plot(
+                [row["processes"] for row in data],
+                [row["speedup_mpi"] for row in data],
+                marker="o",
+                label=f"{m}x{n}",
+            )
+        plt.xlabel("Processos MPI")
+        plt.ylabel("Speedup MPI interno")
+        plt.title("Speedup interno - MPI 1 processo como base")
+        plt.grid(True, alpha=0.3)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(OUT_DIR / "speedup_mpi.png", dpi=160)
 
     plt.figure(figsize=(8, 5))
     for m, n in sizes:
@@ -206,8 +240,8 @@ def collect(args):
                     raise ValueError(
                         f"Checksum divergente: MPI={result['checksum']} SEQ={seq['checksum']}"
                     )
-                speedup = seq["elapsed"] / result["elapsed"]
-                efficiency = speedup / processes
+                speedup_seq = seq["elapsed"] / result["elapsed"]
+                efficiency_seq = speedup_seq / processes
                 row = {
                     "rep": rep,
                     "m": m,
@@ -216,18 +250,48 @@ def collect(args):
                     "rows_per_process": result["rows_per_process"],
                     "seq_time": seq["elapsed"],
                     "elapsed": result["elapsed"],
-                    "speedup": speedup,
-                    "efficiency": efficiency,
+                    "speedup": speedup_seq,
+                    "efficiency": efficiency_seq,
+                    "speedup_seq": speedup_seq,
+                    "efficiency_seq": efficiency_seq,
+                    "speedup_mpi": "",
+                    "efficiency_mpi": "",
+                    "bcast_time": result["bcast_time"],
+                    "scatter_time": result["scatter_time"],
+                    "compute_time": result["compute_time"],
+                    "gather_time": result["gather_time"],
+                    "validation_time": result["validation_time"],
                     "checksum": result["checksum"],
                 }
                 rows.append(row)
                 print(
                     f"mpi {m}x{n} processos={processes} rep={rep} "
-                    f"tempo={result['elapsed']:.6f}s speedup={speedup:.2f}"
+                    f"tempo={result['elapsed']:.6f}s speedup_seq={speedup_seq:.2f}"
                 )
 
+    add_internal_speedup(rows)
     write_csv(rows)
     make_plots(rows)
+
+
+def add_internal_speedup(rows):
+    mpi_one_process = {}
+    for row in rows:
+        if row["processes"] == 1:
+            mpi_one_process.setdefault((row["m"], row["n"]), []).append(row["elapsed"])
+
+    baselines = {
+        key: sum(values) / len(values)
+        for key, values in mpi_one_process.items()
+    }
+
+    for row in rows:
+        baseline = baselines.get((row["m"], row["n"]))
+        if baseline is None:
+            continue
+        speedup_mpi = baseline / row["elapsed"]
+        row["speedup_mpi"] = speedup_mpi
+        row["efficiency_mpi"] = speedup_mpi / row["processes"]
 
 
 def parse_size(value):

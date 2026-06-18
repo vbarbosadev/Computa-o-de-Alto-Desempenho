@@ -21,8 +21,8 @@ A implementacao usa apenas os conceitos dos materiais 21, 22 e 23:
 - `MPI_ANY_TAG`, usado pelos trabalhadores para receber tarefa ou sinal de parada;
 - `MPI_Wtime` para medir o tempo da parte MPI.
 
-Nao foram usadas rotinas coletivas. O speedup e a eficiencia sao calculados no script
-Python a partir do tempo sequencial e do tempo MPI.
+Nao foram usadas rotinas coletivas. O speedup e as eficiencias sao calculados no
+script Python a partir do tempo sequencial e do tempo MPI.
 
 ## Como o escalonador evita deadlock
 
@@ -46,27 +46,48 @@ voltam a receber depois de concluir uma tarefa.
 - Valores maximos testados: `300000, 1000000`
 - Quantidades de tarefas: `8, 32, 128`
 - Processos MPI testados: `2, 4`
-- Trabalhadores: processos MPI menos o lider
+- Trabalhadores: processos MPI menos o lider; o rank `0` coordena e nao executa
+  diretamente os testes de primalidade
 - Rodadas por configuracao: `3`
 - Compilacao sequencial: `gcc -O3 -Wall -Wextra -lm`
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra -lm`
 
+## Baseline e metricas
+
+O baseline e o programa sequencial `primos_seq.c`, medido uma vez para cada valor
+maximo e reaproveitado nas rodadas MPI correspondentes. O tempo MPI mede a execucao
+completa do escalonador lider-trabalhador, incluindo envio das tarefas, recebimento
+dos resultados e mensagens de parada.
+
+Neste relatorio ha duas eficiencias derivadas do mesmo speedup:
+
+- `Efic. trab.` divide o speedup pelo numero de trabalhadores (`processos MPI - 1`).
+  Essa e a metrica principal para este modelo, porque somente os trabalhadores
+  calculam primos; o lider coordena o escalonamento.
+- `Efic. proc.` divide o speedup pelo total de processos MPI. Ela e uma leitura mais
+  conservadora quando se quer contabilizar tambem o processo lider.
+
+|Max|Baseline sequencial (s)|Formula do speedup|Formula da efic. trab.|Formula da efic. proc.|
+|---:|---:|---|---|---|
+|300000|0.011349|`T_seq / T_mpi`|`speedup / trabalhadores`|`speedup / processos MPI`|
+|1000000|0.049915|`T_seq / T_mpi`|`speedup / trabalhadores`|`speedup / processos MPI`|
+
 ## Resultados
 
-|Max|Tarefas|Processos|Trabalhadores|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Primos|
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|300000|8|2|1|3|0.011349|0.007469|1.52|1.52|25997|
-|300000|8|4|3|3|0.011349|0.002988|3.80|1.27|25997|
-|300000|32|2|1|3|0.011349|0.007457|1.52|1.52|25997|
-|300000|32|4|3|3|0.011349|0.002606|4.36|1.45|25997|
-|300000|128|2|1|3|0.011349|0.007550|1.50|1.50|25997|
-|300000|128|4|3|3|0.011349|0.002557|4.44|1.48|25997|
-|1000000|8|2|1|3|0.049915|0.038982|1.28|1.28|78498|
-|1000000|8|4|3|3|0.049915|0.015538|3.21|1.07|78498|
-|1000000|32|2|1|3|0.049915|0.038876|1.28|1.28|78498|
-|1000000|32|4|3|3|0.049915|0.013638|3.66|1.22|78498|
-|1000000|128|2|1|3|0.049915|0.039042|1.28|1.28|78498|
-|1000000|128|4|3|3|0.049915|0.013250|3.77|1.26|78498|
+|Max|Tarefas|Processos MPI|Trabalhadores|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Efic. trab.|Efic. proc.|Primos|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|300000|8|2|1|3|0.011349|0.007469|1.52|1.52|0.76|25997|
+|300000|8|4|3|3|0.011349|0.002988|3.80|1.27|0.95|25997|
+|300000|32|2|1|3|0.011349|0.007457|1.52|1.52|0.76|25997|
+|300000|32|4|3|3|0.011349|0.002606|4.36|1.45|1.09|25997|
+|300000|128|2|1|3|0.011349|0.007550|1.50|1.50|0.75|25997|
+|300000|128|4|3|3|0.011349|0.002557|4.44|1.48|1.11|25997|
+|1000000|8|2|1|3|0.049915|0.038982|1.28|1.28|0.64|78498|
+|1000000|8|4|3|3|0.049915|0.015538|3.21|1.07|0.80|78498|
+|1000000|32|2|1|3|0.049915|0.038876|1.28|1.28|0.64|78498|
+|1000000|32|4|3|3|0.049915|0.013638|3.66|1.22|0.92|78498|
+|1000000|128|2|1|3|0.049915|0.039042|1.28|1.28|0.64|78498|
+|1000000|128|4|3|3|0.049915|0.013250|3.77|1.26|0.94|78498|
 
 ## Graficos
 
@@ -78,10 +99,10 @@ voltam a receber depois de concluir uma tarefa.
 
 ## Melhores casos
 
-- Max=300000, 1 trabalhadores: 32 tarefas, media 0.007457s, speedup 1.52, eficiencia 1.52.
-- Max=300000, 3 trabalhadores: 128 tarefas, media 0.002557s, speedup 4.44, eficiencia 1.48.
-- Max=1000000, 1 trabalhadores: 32 tarefas, media 0.038876s, speedup 1.28, eficiencia 1.28.
-- Max=1000000, 3 trabalhadores: 128 tarefas, media 0.013250s, speedup 3.77, eficiencia 1.26.
+- Max=300000, 1 trabalhadores: 32 tarefas, media 0.007457s, speedup 1.52, eficiencia por trabalhador 1.52 e eficiencia por processo 0.76.
+- Max=300000, 3 trabalhadores: 128 tarefas, media 0.002557s, speedup 4.44, eficiencia por trabalhador 1.48 e eficiencia por processo 1.11.
+- Max=1000000, 1 trabalhadores: 32 tarefas, media 0.038876s, speedup 1.28, eficiencia por trabalhador 1.28 e eficiencia por processo 0.64.
+- Max=1000000, 3 trabalhadores: 128 tarefas, media 0.013250s, speedup 3.77, eficiencia por trabalhador 1.26 e eficiencia por processo 0.94.
 
 ## Analise
 
@@ -97,9 +118,40 @@ o trabalho. Por outro lado, tarefas demais tambem aumentam o numero de mensagens
 overhead de escalonamento.
 
 O speedup compara o tempo sequencial com o tempo MPI. A eficiencia divide esse
-speedup pelo numero de trabalhadores. Eficiencia proxima de `1.0` indicaria uso quase
-ideal dos trabalhadores; quedas indicam overhead de comunicacao, desequilibrio de
-carga ou custo do lider coordenando as tarefas.
+speedup pelo numero de trabalhadores, nao pelo numero total de processos MPI. Essa
+escolha segue a organizacao lider-trabalhador: com `4` processos MPI ha `3`
+trabalhadores fazendo computacao e `1` lider fazendo coordenacao. A coluna
+`Efic. proc.` foi incluida para deixar visivel a interpretacao alternativa que
+contabiliza tambem o lider no denominador.
+
+Os valores acima de `1.0` aparecem inclusive com `1` trabalhador. Nesse caso nao ha
+paralelismo computacional entre trabalhadores; portanto a eficiencia maior que `1`
+nao deve ser interpretada como ganho paralelo ideal. Ela indica que o baseline
+sequencial e a execucao MPI nao tem exatamente o mesmo perfil de custo: a versao MPI
+divide o intervalo em subintervalos menores, pode mudar o comportamento de cache e de
+predicao de desvios, e as medicoes sao curtas o bastante para sofrerem variacao do
+sistema. Com `3` trabalhadores, esses mesmos efeitos podem se somar ao paralelismo e
+gerar speedup superlinear aparente.
+
+Casos em que a eficiencia por trabalhador ficou acima de `1.0`:
+
+- Max=300000, tarefas=8, 2 processos MPI/1 trabalhadores: speedup 1.52, efic. trab. 1.52, efic. proc. 0.76.
+- Max=300000, tarefas=8, 4 processos MPI/3 trabalhadores: speedup 3.80, efic. trab. 1.27, efic. proc. 0.95.
+- Max=300000, tarefas=32, 2 processos MPI/1 trabalhadores: speedup 1.52, efic. trab. 1.52, efic. proc. 0.76.
+- Max=300000, tarefas=32, 4 processos MPI/3 trabalhadores: speedup 4.36, efic. trab. 1.45, efic. proc. 1.09.
+- Max=300000, tarefas=128, 2 processos MPI/1 trabalhadores: speedup 1.50, efic. trab. 1.50, efic. proc. 0.75.
+- Max=300000, tarefas=128, 4 processos MPI/3 trabalhadores: speedup 4.44, efic. trab. 1.48, efic. proc. 1.11.
+- Max=1000000, tarefas=8, 2 processos MPI/1 trabalhadores: speedup 1.28, efic. trab. 1.28, efic. proc. 0.64.
+- Max=1000000, tarefas=8, 4 processos MPI/3 trabalhadores: speedup 3.21, efic. trab. 1.07, efic. proc. 0.80.
+- Max=1000000, tarefas=32, 2 processos MPI/1 trabalhadores: speedup 1.28, efic. trab. 1.28, efic. proc. 0.64.
+- Max=1000000, tarefas=32, 4 processos MPI/3 trabalhadores: speedup 3.66, efic. trab. 1.22, efic. proc. 0.92.
+- Max=1000000, tarefas=128, 2 processos MPI/1 trabalhadores: speedup 1.28, efic. trab. 1.28, efic. proc. 0.64.
+- Max=1000000, tarefas=128, 4 processos MPI/3 trabalhadores: speedup 3.77, efic. trab. 1.26, efic. proc. 0.94.
+
+Assim, os casos superlineares devem ser lidos como resultado experimental dependente
+do baseline e do ambiente de medicao. Para uma avaliacao mais robusta seria adequado
+aumentar o tamanho do problema, usar mais repeticoes e reportar tambem mediana ou
+intervalos de variacao.
 
 ## Conclusao
 
@@ -375,3 +427,14 @@ int main(int argc, char **argv)
     return 0;
 }
 ```
+
+## Artefatos
+
+- Codigo sequencial: `Tarefa-16/primos_seq.c`
+- Codigo MPI: `Tarefa-16/leader_worker_primes.c`
+- Coleta: `Tarefa-16/coletar_mpi.py`
+- CSV: `Tarefa-16/resultados/tarefa16_resultados.csv`
+- Graficos: `Tarefa-16/resultados/speedup_max300000.png`,
+  `Tarefa-16/resultados/speedup_max1000000.png` e
+  `Tarefa-16/resultados/eficiencia.png`
+- Relatorio: `Tarefa-16/resultados/relatorio_tarefa16.md`

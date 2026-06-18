@@ -4,7 +4,10 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ModuleNotFoundError:
+    plt = None
 
 
 ROOT = Path(__file__).resolve().parent
@@ -64,6 +67,8 @@ def label(result: Result) -> str:
 
 def save_compute_chart(results: list[Result]) -> Path:
     path = RESULTS_DIR / "tempo_computacao.png"
+    if plt is None:
+        return path
     labels = [label(r) for r in results]
     avg = [r.avg_compute_s for r in results]
     best = [r.best_compute_s for r in results]
@@ -86,6 +91,8 @@ def save_compute_chart(results: list[Result]) -> Path:
 
 def save_speedup_chart(results: list[Result]) -> Path:
     path = RESULTS_DIR / "speedup_gpu_vs_cpu.png"
+    if plt is None:
+        return path
     cpu = next((r for r in results if r.variant == "cpu"), None)
     if cpu is None:
         return path
@@ -109,6 +116,8 @@ def save_speedup_chart(results: list[Result]) -> Path:
 
 def save_components_chart(results: list[Result]) -> Path:
     path = RESULTS_DIR / "componentes_tempo_total.png"
+    if plt is None:
+        return path
     labels = [label(r) for r in results]
     init = [r.init_s for r in results]
     compute = [r.avg_compute_s for r in results]
@@ -204,6 +213,8 @@ def main() -> None:
     ]
     report = write_report(results, charts)
     print(f"Relatorio gerado: {report}")
+    if plt is None:
+        print("matplotlib indisponivel; graficos existentes foram reaproveitados.")
     for chart in charts:
         print(f"Grafico gerado: {chart}")
 

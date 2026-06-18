@@ -1,9 +1,6 @@
-from __future__ import annotations
-
 import argparse
 import csv
 import statistics
-from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -11,49 +8,57 @@ ROOT = Path(__file__).resolve().parent
 RESULTS_DIR = ROOT / "resultados"
 
 
-@dataclass(frozen=True)
-class Run:
-    source: str
-    variant: str
-    n: int
-    nsteps: int
-    repeat: int
-    error_l2: float
-    solve_time_s: float
-    total_time_s: float
-    omp_threads: str
-    omp_devices: str
-    offload_policy: str
+class Run(object):
+    def __init__(
+        self, source, variant, n, nsteps, repeat, error_l2, solve_time_s,
+        total_time_s, omp_threads, omp_devices, offload_policy
+    ):
+        self.source = source
+        self.variant = variant
+        self.n = n
+        self.nsteps = nsteps
+        self.repeat = repeat
+        self.error_l2 = error_l2
+        self.solve_time_s = solve_time_s
+        self.total_time_s = total_time_s
+        self.omp_threads = omp_threads
+        self.omp_devices = omp_devices
+        self.offload_policy = offload_policy
 
 
-@dataclass(frozen=True)
-class Summary:
-    n: int
-    nsteps: int
-    cpu_repeats: int
-    gpu_repeats: int
-    cpu_best_solve_s: float
-    gpu_best_solve_s: float
-    cpu_avg_solve_s: float
-    gpu_avg_solve_s: float
-    speedup_solve: float
-    cpu_avg_total_s: float
-    gpu_avg_total_s: float
-    speedup_total: float
-    cpu_avg_l2: float
-    gpu_avg_l2: float
-    l2_abs_diff: float
+class Summary(object):
+    def __init__(
+        self, n, nsteps, cpu_repeats, gpu_repeats, cpu_best_solve_s,
+        gpu_best_solve_s, cpu_avg_solve_s, gpu_avg_solve_s, speedup_solve,
+        cpu_avg_total_s, gpu_avg_total_s, speedup_total, cpu_avg_l2,
+        gpu_avg_l2, l2_abs_diff
+    ):
+        self.n = n
+        self.nsteps = nsteps
+        self.cpu_repeats = cpu_repeats
+        self.gpu_repeats = gpu_repeats
+        self.cpu_best_solve_s = cpu_best_solve_s
+        self.gpu_best_solve_s = gpu_best_solve_s
+        self.cpu_avg_solve_s = cpu_avg_solve_s
+        self.gpu_avg_solve_s = gpu_avg_solve_s
+        self.speedup_solve = speedup_solve
+        self.cpu_avg_total_s = cpu_avg_total_s
+        self.gpu_avg_total_s = gpu_avg_total_s
+        self.speedup_total = speedup_total
+        self.cpu_avg_l2 = cpu_avg_l2
+        self.gpu_avg_l2 = gpu_avg_l2
+        self.l2_abs_diff = l2_abs_diff
 
 
-def parse_float(value: str, field: str, source: Path) -> float:
+def parse_float(value, field, source):
     if value == "":
         raise ValueError(f"Campo vazio {field} em {source}")
     return float(value)
 
 
-def load_runs(paths: list[Path]) -> tuple[list[Run], list[str]]:
-    runs: list[Run] = []
-    warnings: list[str] = []
+def load_runs(paths):
+    runs = []
+    warnings = []
 
     for path in paths:
         with path.open(newline="", encoding="utf-8") as f:
@@ -91,13 +96,13 @@ def load_runs(paths: list[Path]) -> tuple[list[Run], list[str]]:
     return runs, warnings
 
 
-def average(values: list[float]) -> float:
-    return statistics.fmean(values)
+def average(values):
+    return sum(values) / float(len(values))
 
 
-def summarize(runs: list[Run]) -> list[Summary]:
+def summarize(runs):
     cases = sorted({(run.n, run.nsteps) for run in runs})
-    summaries: list[Summary] = []
+    summaries = []
 
     for n, nsteps in cases:
         cpu = [
@@ -143,7 +148,7 @@ def summarize(runs: list[Run]) -> list[Summary]:
     return summaries
 
 
-def write_summary_csv(summaries: list[Summary]) -> Path:
+def write_summary_csv(summaries):
     path = RESULTS_DIR / "comparacao_heat_resumo.csv"
     with path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -189,7 +194,7 @@ def write_summary_csv(summaries: list[Summary]) -> Path:
     return path
 
 
-def markdown_table(summaries: list[Summary]) -> str:
+def markdown_table(summaries):
     lines = [
         "| N | Passos | Reps CPU | Reps GPU | CPU solve medio (s) | GPU solve medio (s) | Speedup solve | CPU total medio (s) | GPU total medio (s) | Speedup total | Delta L2 |",
         "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -205,9 +210,7 @@ def markdown_table(summaries: list[Summary]) -> str:
     return "\n".join(lines)
 
 
-def write_report(
-    summaries: list[Summary], sources: list[Path], warnings: list[str], charts: list[Path]
-) -> Path:
+def write_report(summaries, sources, warnings, charts):
     path = RESULTS_DIR / "comparacao_heat.md"
     source_names = ", ".join(path.name for path in sources)
 
@@ -256,7 +259,7 @@ podem aparecer por ordem de execucao e arredondamento.
     return path
 
 
-def save_charts(summaries: list[Summary]) -> list[Path]:
+def save_charts(summaries):
     try:
         import matplotlib.pyplot as plt
     except ImportError:
@@ -265,7 +268,7 @@ def save_charts(summaries: list[Summary]) -> list[Path]:
     labels = [f"{item.n}x{item.n}\n{item.nsteps} passos" for item in summaries]
     x = list(range(len(summaries)))
     width = 0.36
-    charts: list[Path] = []
+    charts = []
 
     path = RESULTS_DIR / "tempo_solve_cpu_gpu.png"
     fig, ax = plt.subplots(figsize=(8.0, 4.6), dpi=140)
@@ -316,13 +319,13 @@ def save_charts(summaries: list[Summary]) -> list[Path]:
     return charts
 
 
-def find_csvs(args: argparse.Namespace) -> list[Path]:
+def find_csvs(args):
     if args.csv:
         return [Path(path) for path in args.csv]
     return sorted(RESULTS_DIR.glob("heat_resultados_*.csv"))
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(
         description="Compara resultados CPU x GPU do heat da tarefa 20."
     )

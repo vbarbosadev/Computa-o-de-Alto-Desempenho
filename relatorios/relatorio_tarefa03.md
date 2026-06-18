@@ -233,3 +233,161 @@ gcc -O2 -fopenmp leibniz_omp.c -o leibniz_omp -lm
 ./leibniz_seq
 ./leibniz_omp
 ```
+
+<!-- codigos-fonte-c-inicio -->
+## Codigos fonte C usados nos testes
+
+### `Tarefa-03/gauss_legendre_pi.c`
+
+```c
+#include <stdio.h>
+#include <math.h>
+#include <omp.h>
+
+// M_PI pode nao estar definido sem _GNU_SOURCE em alguns compiladores
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+void gauss_legendre(int it) {
+    double a = 1.0;
+    double b = 1.0 / sqrt(2.0);
+    double t = 0.25;
+    double p = 1.0;
+    double a_next, pi;
+
+    double start = omp_get_wtime();
+
+    for (int i = 0; i < it; i++) {
+        a_next = (a + b) / 2.0;
+        t -= p * (a - a_next) * (a - a_next);
+        b = sqrt(a * b);
+        a = a_next;
+        p = 2.0 * p;
+    }
+
+    pi = ((a + b) * (a + b)) / (4.0 * t);
+
+    double end = omp_get_wtime();
+
+    double erro = fabs(pi - M_PI);
+    // output CSV: iteracoes,segundos,pi_aprox,erro
+    // %.17f = maximo de casas decimais uteis para um double (17 digitos significativos)
+    printf("%d,%.9f,%.17f,%.3e\n", it, end - start, pi, erro);
+}
+
+int main() {
+    int iteracoes[] = {1, 2, 3, 4, 5, 10, 20, 50};
+    int n = sizeof(iteracoes) / sizeof(iteracoes[0]);
+
+    printf("# M_PI (referencia): %.17f\n", M_PI);
+    printf("iteracoes,segundos,pi_aprox,erro\n");
+    for (int i = 0; i < n; i++)
+        gauss_legendre(iteracoes[i]);
+
+    return 0;
+}
+```
+
+### `Tarefa-03/leibniz_omp.c`
+
+```c
+#include <stdio.h>
+#include <math.h>
+#include <omp.h>
+
+#define M_PIl 3.14159265358979323846264338327950288L
+
+// Serie de Leibniz paralelizada com OpenMP
+// long double: mais precisao; reduction garante soma correta entre threads
+void leibniz_omp(long long n, int num_threads) {
+    double start = omp_get_wtime();
+
+    long double sum = 0.0L;
+
+    #pragma omp parallel for reduction(+:sum) num_threads(num_threads)
+    for (long long i = 0; i < n; i++) {
+        long double term = 1.0L / (2.0L * i + 1.0L);
+        sum += (i % 2 == 0) ? term : -term;
+    }
+
+    long double pi = 4.0L * sum;
+    double end = omp_get_wtime();
+
+    long double erro = fabsl(pi - M_PIl);
+    // output CSV: iteracoes,threads,segundos,pi_aprox,erro
+    printf("%lld,%d,%.9f,%.21Lf,%.3Le\n", n, num_threads, end - start, pi, erro);
+}
+
+int main() {
+    long long iteracoes[] = {
+        100000000LL, 1000000000LL, 5000000000LL
+    };
+    int threads[] = {1, 2, 4, 8};
+
+    int ni = sizeof(iteracoes) / sizeof(iteracoes[0]);
+    int nt = sizeof(threads) / sizeof(threads[0]);
+
+    printf("# M_PI (referencia): %.21Lf\n", M_PIl);
+    printf("iteracoes,threads,segundos,pi_aprox,erro\n");
+    for (int i = 0; i < ni; i++)
+        for (int j = 0; j < nt; j++)
+            leibniz_omp(iteracoes[i], threads[j]);
+
+    return 0;
+}
+```
+
+### `Tarefa-03/leibniz_seq.c`
+
+```c
+#include <stdio.h>
+#include <math.h>
+#include <omp.h>
+
+// Referencia com casas extras para long double (18-19 digitos significativos)
+#define M_PIl 3.14159265358979323846264338327950288L
+
+// Serie de Leibniz: pi/4 = 1 - 1/3 + 1/5 - 1/7 + ...
+// long double: ~18-19 digitos significativos vs ~15-16 do double
+void leibniz(long long n) {
+    double start = omp_get_wtime();
+
+    long double sum = 0.0L;
+    for (long long i = 0; i < n; i++) {
+        long double term = 1.0L / (2.0L * i + 1.0L);
+        sum += (i % 2 == 0) ? term : -term;
+    }
+
+    long double pi = 4.0L * sum;
+    double end = omp_get_wtime();
+
+    long double erro = fabsl(pi - M_PIl);
+    // output CSV: iteracoes,segundos,pi_aprox,erro
+    printf("%lld,%.9f,%.21Lf,%.3Le\n", n, end - start, pi, erro);
+}
+
+int main() {
+    long long iteracoes[] = {
+        10, 100, 1000, 10000, 100000,
+        1000000, 10000000, 100000000,
+        1000000000LL, 5000000000LL
+    };
+    int n = sizeof(iteracoes) / sizeof(iteracoes[0]);
+
+    printf("# M_PI (referencia): %.21Lf\n", M_PIl);
+    printf("iteracoes,segundos,pi_aprox,erro\n");
+    for (int i = 0; i < n; i++)
+        leibniz(iteracoes[i]);
+
+    return 0;
+}
+```
+
+<!-- codigos-fonte-c-fim -->
+
+<!-- scripts-sbatch-npad-inicio -->
+## Scripts sbatch do NPAD
+
+Nao ha script `sbatch` do NPAD associado a esta tarefa no repositorio.
+<!-- scripts-sbatch-npad-fim -->

@@ -69,6 +69,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < m; i++) {
         checksum += y[i];
     }
+    
 
     printf(
         "RESULT versao=seq m=%d n=%d tempo=%.9f checksum=%.6f\n",
@@ -83,3 +84,7 @@ int main(int argc, char **argv)
     free(y);
     return 0;
 }
+
+
+
+j

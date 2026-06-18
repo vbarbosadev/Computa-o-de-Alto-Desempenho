@@ -42,27 +42,40 @@ de offload nao estiverem disponiveis.
 
 ## Comparacao de tempos
 
-Nesta sessao local nao foi possivel executar em um no GPU do NPAD. A pasta
-foi deixada com o procedimento reprodutivel para gerar os tempos no ambiente
-solicitado. Ao final do job, o arquivo
-`Tarefa-19/resultados/tarefa19_resultados_<jobid>.csv` trara linhas no formato:
+A execucao foi realizada no NPAD e os dados foram registrados em
+`Tarefa-19/resultados/tarefa19_resultados_1858301.csv`. Nos dois programas ha uma
+execucao de aquecimento antes das repeticoes medidas. Na versao GPU, o tempo da soma
+inclui a entrada e saida da regiao `target` e as transferencias determinadas pelas
+clausulas `map`.
+
+| Variante | Dispositivo | N | Repeticoes | Melhor soma (s) | Media soma (s) | Inicializacao (s) | Validacao (s) | Erros | Threads | Devices |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| CPU | host | 100000000 | 5 | 0.107329130 | 0.108146763 | 0.501634121 | 0.103204966 | 0 | 1 | 0 |
+| GPU | openmp-target | 100000000 | 5 | 0.125133038 | 0.125197220 | 0.494171143 | 0.101060152 | 0 | 1 | 1 |
+
+Com base no tempo medio da soma, o speedup GPU em relacao a CPU foi:
 
 ```text
-variant,device,n,repeats,best_compute_s,avg_compute_s,init_s,verify_s,errors,omp_threads,omp_devices
-cpu,host,...
-gpu,openmp-target,...
+speedup = 0.108146763 / 0.125197220 = 0.864x
 ```
 
-Nos dois programas ha uma execucao de aquecimento antes das repeticoes
-medidas. Na versao GPU, o tempo de soma medido inclui a regiao `target` com
-as transferencias definidas pelas clausulas `map`.
+Portanto, neste caso a GPU ficou aproximadamente 15,8% mais lenta que a CPU de
+referencia. Isso nao indica erro de implementacao: todas as execucoes terminaram com
+`errors = 0`. O resultado mostra que, para essa versao simples do exercicio, o custo
+de entrada/saida da regiao `target` e das copias associadas ao `map` ainda pesa
+bastante. A linha CPU foi medida com `OMP_NUM_THREADS=1`, entao ela representa uma
+CPU com uma thread OpenMP, nao uma comparacao contra toda a capacidade multicore do
+no.
 
-Depois da execucao no NPAD, a comparacao deve ser preenchida com:
+## Graficos
 
-| Variante | Melhor tempo de soma (s) | Tempo medio de soma (s) | Erros |
-| --- | ---: | ---: | ---: |
-| CPU | a preencher pelo CSV | a preencher pelo CSV | a preencher pelo CSV |
-| GPU | a preencher pelo CSV | a preencher pelo CSV | a preencher pelo CSV |
+Os graficos gerados a partir do CSV estao abaixo.
+
+![Tempo de computacao](resultados/tempo_computacao.png)
+
+![Speedup GPU vs CPU](resultados/speedup_gpu_vs_cpu.png)
+
+![Componentes do tempo total](resultados/componentes_tempo_total.png)
 
 ## Progresso, problemas e solucoes
 
@@ -77,5 +90,9 @@ Depois da execucao no NPAD, a comparacao deve ser preenchida com:
    e `map(from: c[0:n])`.
 4. Para garantir que a execucao realmente use GPU, o script SLURM exporta
    `OMP_TARGET_OFFLOAD=MANDATORY`.
-5. A comparacao de tempos ainda depende da execucao no no GPU do NPAD, que
-   nao esta disponivel neste ambiente local.
+5. A execucao no NPAD produziu `omp_devices = 1` para a variante GPU, confirmando
+   que havia dispositivo OpenMP alvo disponivel.
+6. A GPU nao superou a CPU nesta medicao porque a versao do exercicio ainda inclui
+   overhead de offload e transferencias. Uma evolucao natural e manter dados
+   residentes na GPU, como proposto na tarefa seguinte sobre otimizacao de
+   transferencia.

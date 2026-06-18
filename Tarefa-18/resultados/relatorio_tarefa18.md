@@ -13,6 +13,13 @@ Foram feitas duas versoes:
 - `cols_resized`: usa `MPI_Type_vector` e depois `MPI_Type_create_resized` para
   ajustar a extensao do tipo derivado.
 
+A versao `cols_resized` deve ser lida como a implementacao tecnicamente fiel ao
+enunciado para espalhar blocos de colunas diretamente a partir da matriz original
+em layout por linhas. A versao `cols_vector` foi mantida como contraste
+metodologico: como o `extent` natural do tipo vetorial nao corresponde ao avanco
+entre blocos de colunas consecutivos, ela usa no rank `0` um buffer artificial com
+lacunas, preparado fora do trecho medido.
+
 ## Funcoes MPI usadas
 
 - `MPI_Type_vector`: cria um tipo derivado para selecionar, em cada linha, um bloco
@@ -37,33 +44,43 @@ Foram feitas duas versoes:
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra`
 - Medicao de tempo: `MPI_Wtime` nas versoes MPI e `gettimeofday` na versao
   sequencial da Tarefa 17
+- Metrica principal de speedup sequencial: tempo sequencial da Tarefa 17 dividido
+  pelo tempo MPI da versao avaliada
+- Speedup interno MPI: media com 1 processo da propria versao MPI dividida pela
+  media com `P` processos da mesma versao
 
 Os valores de `N` foram escolhidos divisiveis por `1`, `2` e `4`, pois a divisao por
 colunas usa `MPI_Scatter` simples. O checksum foi comparado com a versao sequencial
 para validar o resultado.
 
+Este relatorio foi gerado a partir de CSV antigo, no qual `tempo=` era o tempo reportado pelo rank 0. Os codigos atuais ja reportam tambem `tempo_max` entre ranks e tempos por fase.
+
 ## Resultados da Tarefa 18
 
-|Versao|M|N|Processos|Colunas/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Checksum|
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|cols_resized|1000|1000|1|1000|3|0.000874|0.002416|0.36|0.36|307461.92|
-|cols_resized|1000|1000|2|500|3|0.000874|0.002192|0.40|0.20|307461.92|
-|cols_resized|1000|1000|4|250|3|0.000874|0.002124|0.41|0.10|307461.92|
-|cols_resized|2000|2000|1|2000|3|0.002706|0.010208|0.27|0.27|1230001.15|
-|cols_resized|2000|2000|2|1000|3|0.002706|0.009038|0.30|0.15|1230001.15|
-|cols_resized|2000|2000|4|500|3|0.002706|0.008403|0.32|0.08|1230001.15|
-|cols_resized|4000|2000|1|2000|3|0.004050|0.020454|0.20|0.20|2460001.74|
-|cols_resized|4000|2000|2|1000|3|0.004050|0.017920|0.23|0.11|2460001.74|
-|cols_resized|4000|2000|4|500|3|0.004050|0.016559|0.24|0.06|2460001.74|
-|cols_vector|1000|1000|1|1000|3|0.000874|0.002434|0.36|0.36|307461.92|
-|cols_vector|1000|1000|2|500|3|0.000874|0.002270|0.39|0.19|307461.92|
-|cols_vector|1000|1000|4|250|3|0.000874|0.002133|0.41|0.10|307461.92|
-|cols_vector|2000|2000|1|2000|3|0.002706|0.010290|0.26|0.26|1230001.15|
-|cols_vector|2000|2000|2|1000|3|0.002706|0.009092|0.30|0.15|1230001.15|
-|cols_vector|2000|2000|4|500|3|0.002706|0.008280|0.33|0.08|1230001.15|
-|cols_vector|4000|2000|1|2000|3|0.004050|0.020517|0.20|0.20|2460001.74|
-|cols_vector|4000|2000|2|1000|3|0.004050|0.018052|0.22|0.11|2460001.74|
-|cols_vector|4000|2000|4|500|3|0.004050|0.016486|0.25|0.06|2460001.74|
+|Versao|M|N|Processos|Colunas/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup seq|Speedup MPI|Eficiencia seq|Checksum|
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|cols_resized|1000|1000|1|1000|3|0.000874|0.002416|0.36|1.00|0.36|307461.92|
+|cols_resized|1000|1000|2|500|3|0.000874|0.002192|0.40|1.10|0.20|307461.92|
+|cols_resized|1000|1000|4|250|3|0.000874|0.002124|0.41|1.14|0.10|307461.92|
+|cols_resized|2000|2000|1|2000|3|0.002706|0.010208|0.27|1.00|0.27|1230001.15|
+|cols_resized|2000|2000|2|1000|3|0.002706|0.009038|0.30|1.13|0.15|1230001.15|
+|cols_resized|2000|2000|4|500|3|0.002706|0.008403|0.32|1.21|0.08|1230001.15|
+|cols_resized|4000|2000|1|2000|3|0.004050|0.020454|0.20|1.00|0.20|2460001.74|
+|cols_resized|4000|2000|2|1000|3|0.004050|0.017920|0.23|1.14|0.11|2460001.74|
+|cols_resized|4000|2000|4|500|3|0.004050|0.016559|0.24|1.24|0.06|2460001.74|
+|cols_vector|1000|1000|1|1000|3|0.000874|0.002434|0.36|1.00|0.36|307461.92|
+|cols_vector|1000|1000|2|500|3|0.000874|0.002270|0.39|1.07|0.19|307461.92|
+|cols_vector|1000|1000|4|250|3|0.000874|0.002133|0.41|1.14|0.10|307461.92|
+|cols_vector|2000|2000|1|2000|3|0.002706|0.010290|0.26|1.00|0.26|1230001.15|
+|cols_vector|2000|2000|2|1000|3|0.002706|0.009092|0.30|1.13|0.15|1230001.15|
+|cols_vector|2000|2000|4|500|3|0.002706|0.008280|0.33|1.24|0.08|1230001.15|
+|cols_vector|4000|2000|1|2000|3|0.004050|0.020517|0.20|1.00|0.20|2460001.74|
+|cols_vector|4000|2000|2|1000|3|0.004050|0.018052|0.22|1.14|0.11|2460001.74|
+|cols_vector|4000|2000|4|500|3|0.004050|0.016486|0.25|1.24|0.06|2460001.74|
+
+## Tempos parciais MPI
+
+As coletas existentes ainda estao no formato antigo e nao trazem tempos parciais. Os codigos e o coletor foram atualizados para registrar esses campos nas proximas execucoes locais ou no NPAD.
 
 ## Comparacao com a Tarefa 17
 
@@ -117,8 +134,10 @@ o final do ultimo bloco, incluindo os espacos entre as linhas. Quando esse tipo 
 usado diretamente em `MPI_Scatter`, o MPI avanca de um processo para o proximo usando
 essa extensao. Por isso, o processo `0` precisa preparar um buffer com espacamento
 entre os blocos de cada processo. A comunicacao ainda usa o tipo derivado, mas ha
-custo extra de memoria e preparacao. Essa preparacao ocorre antes do trecho medido
-no script de testes, mas ainda e uma diferenca importante da implementacao.
+custo extra de memoria e preparacao. Essa preparacao ocorre antes do trecho medido,
+portanto os tempos de `cols_vector` nao incluem o custo de montar esse buffer
+expandido. Por esse motivo, ela nao deve ser usada como evidencia isolada de que o
+uso direto de `MPI_Type_vector` e equivalente a `MPI_Type_create_resized`.
 
 A versao `cols_resized` corrige esse problema. Depois de criar o tipo com
 `MPI_Type_vector`, `MPI_Type_create_resized` define a extensao como
@@ -144,8 +163,10 @@ Nos resultados medidos, `cols_vector` e `cols_resized` ficaram proximas. Isso oc
 porque as duas usam o mesmo padrao de comunicacao principal: `MPI_Scatter` para a
 matriz, `MPI_Scatter` para o segmento de `x` e `MPI_Reduce` para somar `y`. A
 diferenca principal entre elas esta na organizacao do buffer no processo `0`, nao no
-calculo local. A versao com `resized` e mais direta e representa melhor o layout real
-da matriz, mesmo quando o tempo medido fica parecido.
+calculo local. Como o custo de preparacao do buffer artificial de `cols_vector` fica
+fora da medicao, a comparacao de desempenho deve priorizar `cols_resized` como
+versao metodologicamente limpa e usar `cols_vector` apenas como demonstracao do
+problema de extensao do tipo derivado.
 
 Comparando com a Tarefa 17, os tempos ficaram na mesma ordem de grandeza. Em alguns
 casos com 2 e 4 processos, as versoes por colunas ficaram levemente mais rapidas que
@@ -299,16 +320,29 @@ int main(int argc, char **argv)
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    double inicio = MPI_Wtime();
+    double t0 = MPI_Wtime();
 
     MPI_Scatter(x, colunas_locais, MPI_DOUBLE, x_local, colunas_locais, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double t1 = MPI_Wtime();
     MPI_Scatter(a_envio, 1, tipo_colunas, a_local, m * colunas_locais, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double t2 = MPI_Wtime();
 
     calcular_parcial(a_local, x_local, y_parcial, m, colunas_locais);
+    double t3 = MPI_Wtime();
 
     MPI_Reduce(y_parcial, y, m, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    double t4 = MPI_Wtime();
 
-    double fim = MPI_Wtime();
+    double tempos_locais[5] = {
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        t4 - t3,
+        t4 - t0,
+    };
+    double tempos_max[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+
+    MPI_Reduce(tempos_locais, tempos_max, 5, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         double checksum = 0.0;
@@ -316,13 +350,21 @@ int main(int argc, char **argv)
             checksum += y[i];
         }
         printf(
-            "RESULT versao=cols_vector processos=%d m=%d n=%d colunas_por_processo=%d tempo=%.9f checksum=%.6f\n",
+            "RESULT versao=cols_vector processos=%d m=%d n=%d colunas_por_processo=%d "
+            "tempo=%.9f checksum=%.6f tempo_rank0=%.9f tempo_max=%.9f "
+            "scatter_x_max=%.9f scatter_a_max=%.9f compute_max=%.9f reduce_max=%.9f\n",
             size,
             m,
             n,
             colunas_locais,
-            fim - inicio,
-            checksum
+            tempos_max[4],
+            checksum,
+            tempos_locais[4],
+            tempos_max[4],
+            tempos_max[0],
+            tempos_max[1],
+            tempos_max[2],
+            tempos_max[3]
         );
     }
 
@@ -459,16 +501,29 @@ int main(int argc, char **argv)
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    double inicio = MPI_Wtime();
+    double t0 = MPI_Wtime();
 
     MPI_Scatter(x, colunas_locais, MPI_DOUBLE, x_local, colunas_locais, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double t1 = MPI_Wtime();
     MPI_Scatter(a, 1, tipo_colunas_redimensionado, a_local, m * colunas_locais, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double t2 = MPI_Wtime();
 
     calcular_parcial(a_local, x_local, y_parcial, m, colunas_locais);
+    double t3 = MPI_Wtime();
 
     MPI_Reduce(y_parcial, y, m, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    double t4 = MPI_Wtime();
 
-    double fim = MPI_Wtime();
+    double tempos_locais[5] = {
+        t1 - t0,
+        t2 - t1,
+        t3 - t2,
+        t4 - t3,
+        t4 - t0,
+    };
+    double tempos_max[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+
+    MPI_Reduce(tempos_locais, tempos_max, 5, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         double checksum = 0.0;
@@ -476,13 +531,21 @@ int main(int argc, char **argv)
             checksum += y[i];
         }
         printf(
-            "RESULT versao=cols_resized processos=%d m=%d n=%d colunas_por_processo=%d tempo=%.9f checksum=%.6f\n",
+            "RESULT versao=cols_resized processos=%d m=%d n=%d colunas_por_processo=%d "
+            "tempo=%.9f checksum=%.6f tempo_rank0=%.9f tempo_max=%.9f "
+            "scatter_x_max=%.9f scatter_a_max=%.9f compute_max=%.9f reduce_max=%.9f\n",
             size,
             m,
             n,
             colunas_locais,
-            fim - inicio,
-            checksum
+            tempos_max[4],
+            checksum,
+            tempos_locais[4],
+            tempos_max[4],
+            tempos_max[0],
+            tempos_max[1],
+            tempos_max[2],
+            tempos_max[3]
         );
     }
 

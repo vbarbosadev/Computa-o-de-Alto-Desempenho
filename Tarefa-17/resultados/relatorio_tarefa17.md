@@ -18,7 +18,8 @@ A implementacao usa as rotinas de comunicacao coletiva apresentadas no conteudo 
   processo `0`.
 - `MPI_Barrier`: faz todos os processos chegarem ao mesmo ponto antes do inicio da
   medicao de tempo.
-- `MPI_Reduce`: soma os checksums locais e produz um checksum global no processo `0`.
+- `MPI_Reduce`: soma os checksums locais e tambem calcula os tempos maximos entre
+  ranks com `MPI_MAX`.
 
 Tambem foram usadas as rotinas basicas ja vistas antes: `MPI_Init`,
 `MPI_Comm_rank`, `MPI_Comm_size`, `MPI_Wtime` e `MPI_Finalize`.
@@ -36,35 +37,47 @@ condicao.
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra`
 - Medicao de tempo: `MPI_Wtime` na versao MPI e `gettimeofday` na versao sequencial
 
-O speedup e a eficiencia foram calculados no script de coleta usando o tempo da versao
-sequencial como base. O checksum do vetor `y` foi comparado entre as versoes para
-validar os resultados.
+Na versao sequencial, o tempo medido comeca depois da inicializacao de `A` e `x` e
+mede apenas o laco de calculo de `y = A*x`. Na versao MPI, o tempo total mede a
+estrategia paralela completa: `MPI_Bcast`, `MPI_Scatter`, calculo local,
+`MPI_Gather` e validacao por checksum. Por isso a tabela separa dois indicadores:
+
+- `Speedup seq`: `tempo_sequencial_de_calculo / tempo_total_MPI`.
+- `Speedup MPI`: `tempo_MPI_com_1_processo / tempo_MPI_com_P_processos`.
+
+O tempo total MPI e os tempos parciais sao reduzidos com `MPI_Reduce(MPI_MAX)`,
+reportando o rank mais lento. O checksum do vetor `y` foi comparado entre as versoes
+para validar os resultados. Os tempos parciais ajudam a identificar gargalos, mas
+nao devem ser somados para reconstruir o total, pois o maximo de cada fase pode vir
+de ranks diferentes.
 
 ## Resultados
 
-|M|N|Processos|Linhas/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Checksum|
-|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-|1000|1000|1|1000|3|0.000385|0.002264|0.17|0.17|307461.92|
-|1000|1000|2|500|3|0.000385|0.002298|0.17|0.08|307461.92|
-|1000|1000|4|250|3|0.000385|0.002158|0.18|0.04|307461.92|
-|2000|2000|1|2000|3|0.002110|0.009868|0.21|0.21|1230001.15|
-|2000|2000|2|1000|3|0.002110|0.009466|0.22|0.11|1230001.15|
-|2000|2000|4|500|3|0.002110|0.008894|0.24|0.06|1230001.15|
-|4000|2000|1|4000|3|0.003801|0.019627|0.19|0.19|2460001.74|
-|4000|2000|2|2000|3|0.003801|0.018565|0.20|0.10|2460001.74|
-|4000|2000|4|1000|3|0.003801|0.017736|0.21|0.05|2460001.74|
+|M|N|Proc.|Linhas/proc.|Rodadas|Seq calc. (s)|MPI total max (s)|Bcast|Scatter|Calc. local|Gather|Validacao|Speedup seq|Speedup MPI|Ef. MPI|
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+|1000|1000|1|1000|3|0.000558|0.002400|0.000000|0.002015|0.000380|0.000004|0.000001|0.23|1.00|1.00|
+|1000|1000|2|500|3|0.000558|0.002335|0.000010|0.002103|0.000196|0.000025|0.000019|0.24|1.03|0.51|
+|1000|1000|4|250|3|0.000558|0.002271|0.000018|0.002135|0.000103|0.000018|0.001107|0.25|1.06|0.26|
+|2000|2000|1|2000|3|0.002114|0.009896|0.000000|0.008000|0.001887|0.000008|0.000001|0.21|1.00|1.00|
+|2000|2000|2|1000|3|0.002114|0.009292|0.000012|0.008269|0.000981|0.000039|0.000017|0.23|1.07|0.53|
+|2000|2000|4|500|3|0.002114|0.008959|0.000013|0.008422|0.000491|0.000017|0.004416|0.24|1.10|0.28|
+|4000|2000|1|4000|3|0.004621|0.019580|0.000000|0.015756|0.003813|0.000010|0.000002|0.24|1.00|1.00|
+|4000|2000|2|2000|3|0.004621|0.018107|0.000012|0.016053|0.002007|0.000038|0.000017|0.26|1.08|0.54|
+|4000|2000|4|1000|3|0.004621|0.017388|0.000014|0.016307|0.001022|0.008324|0.000028|0.27|1.13|0.28|
 
 ## Graficos
 
 ![Speedup](speedup.png)
 
+
+
 ![Eficiencia](eficiencia.png)
 
 ## Melhores casos
 
-- Matriz 1000x1000: melhor tempo com 4 processos, media 0.002158s, speedup 0.18.
-- Matriz 2000x2000: melhor tempo com 4 processos, media 0.008894s, speedup 0.24.
-- Matriz 4000x2000: melhor tempo com 4 processos, media 0.017736s, speedup 0.21.
+- Matriz 1000x1000: melhor tempo com 4 processos, media 0.002271s, speedup sequencial 0.25 e speedup MPI interno 1.06.
+- Matriz 2000x2000: melhor tempo com 4 processos, media 0.008959s, speedup sequencial 0.24 e speedup MPI interno 1.10.
+- Matriz 4000x2000: melhor tempo com 4 processos, media 0.017388s, speedup sequencial 0.27 e speedup MPI interno 1.13.
 
 ## Analise
 
@@ -81,10 +94,12 @@ calculo local passou a compensar melhor o custo das coletivas.
 
 Mesmo assim, o speedup em relacao ao programa sequencial ficou menor que 1 em todos
 os casos. Isso significa que a versao MPI ficou mais lenta que a sequencial usada
-como base. O motivo principal e que o programa sequencial apenas inicializa e calcula
-localmente, enquanto a versao MPI, alem do calculo, precisa distribuir o vetor,
-distribuir a matriz e reunir o resultado. Para esses tamanhos e nesse ambiente local,
-o custo dessas etapas extras foi maior que o ganho obtido ao dividir o calculo.
+como base. Essa comparacao e intencionalmente conservadora: o sequencial mede so o
+calculo, enquanto o tempo MPI total inclui comunicacao, reuniao do resultado e
+validacao. O speedup MPI interno, por outro lado, isola melhor a escalabilidade da
+implementacao coletiva ao comparar a propria versao MPI com 1 processo contra 2 e 4
+processos. Para esses tamanhos e nesse ambiente local, o custo das etapas extras foi
+maior que o ganho obtido ao dividir o calculo.
 
 ### Efeito de cada funcao coletiva
 
@@ -113,12 +128,12 @@ Mesmo assim, ela adiciona uma sincronizacao natural ao final: o processo `0` so 
 resultado completo depois que todos os processos terminam seus calculos locais e
 enviam suas partes.
 
-`MPI_Reduce` foi usado para validar o resultado. Cada processo calcula um checksum
-local somando os valores do seu bloco de `y`. Em seguida, `MPI_Reduce` aplica a soma
-e entrega o checksum global ao processo `0`. Essa chamada movimenta apenas um valor
-por processo, entao seu custo e bem menor que o de distribuir a matriz com
-`MPI_Scatter`. Mesmo assim, ela tambem e uma coletiva e acrescenta sincronizacao no
-fim da execucao medida.
+`MPI_Reduce` foi usado de duas formas. Para validar o resultado, cada processo
+calcula um checksum local somando os valores do seu bloco de `y`; em seguida,
+`MPI_Reduce(MPI_SUM)` entrega o checksum global ao processo `0`. Para medir tempo,
+cada rank calcula suas duracoes locais e `MPI_Reduce(MPI_MAX)` reporta o maior valor,
+isto e, o tempo observado pelo rank mais lento. Essa escolha evita que a analise
+dependa apenas do tempo do rank `0`.
 
 A eficiencia mede quanto do ganho teorico foi aproveitado. Ela caiu quando o numero
 de processos aumentou porque o trabalho local por processo diminuiu, mas os custos de
@@ -358,9 +373,13 @@ int main(int argc, char **argv)
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    double inicio = MPI_Wtime();
+    double inicio_total = MPI_Wtime();
 
+    double inicio = MPI_Wtime();
     MPI_Bcast(x, n, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    double tempo_bcast_local = MPI_Wtime() - inicio;
+
+    inicio = MPI_Wtime();
     MPI_Scatter(
         a,
         linhas_locais * n,
@@ -371,14 +390,13 @@ int main(int argc, char **argv)
         0,
         MPI_COMM_WORLD
     );
+    double tempo_scatter_local = MPI_Wtime() - inicio;
 
+    inicio = MPI_Wtime();
     multiplicar_local(a_local, x, y_local, linhas_locais, n);
+    double tempo_compute_local = MPI_Wtime() - inicio;
 
-    double checksum_local = 0.0;
-    for (int i = 0; i < linhas_locais; i++) {
-        checksum_local += y_local[i];
-    }
-
+    inicio = MPI_Wtime();
     MPI_Gather(
         y_local,
         linhas_locais,
@@ -389,20 +407,47 @@ int main(int argc, char **argv)
         0,
         MPI_COMM_WORLD
     );
+    double tempo_gather_local = MPI_Wtime() - inicio;
+
+    inicio = MPI_Wtime();
+    double checksum_local = 0.0;
+    for (int i = 0; i < linhas_locais; i++) {
+        checksum_local += y_local[i];
+    }
 
     double checksum = 0.0;
     MPI_Reduce(&checksum_local, &checksum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    double tempo_validacao_local = MPI_Wtime() - inicio;
 
-    double fim = MPI_Wtime();
+    double tempo_total_local = MPI_Wtime() - inicio_total;
+    double tempo_total = 0.0;
+    double tempo_bcast = 0.0;
+    double tempo_scatter = 0.0;
+    double tempo_compute = 0.0;
+    double tempo_gather = 0.0;
+    double tempo_validacao = 0.0;
+
+    MPI_Reduce(&tempo_total_local, &tempo_total, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_bcast_local, &tempo_bcast, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_scatter_local, &tempo_scatter, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_compute_local, &tempo_compute, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_gather_local, &tempo_gather, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&tempo_validacao_local, &tempo_validacao, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 
     if (rank == 0) {
         printf(
-            "RESULT versao=mpi_collective processos=%d m=%d n=%d linhas_por_processo=%d tempo=%.9f checksum=%.6f\n",
+            "RESULT versao=mpi_collective processos=%d m=%d n=%d linhas_por_processo=%d "
+            "tempo=%.9f bcast=%.9f scatter=%.9f compute=%.9f gather=%.9f validacao=%.9f checksum=%.6f\n",
             size,
             m,
             n,
             linhas_locais,
-            fim - inicio,
+            tempo_total,
+            tempo_bcast,
+            tempo_scatter,
+            tempo_compute,
+            tempo_gather,
+            tempo_validacao,
             checksum
         );
     }

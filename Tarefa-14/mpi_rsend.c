@@ -26,6 +26,7 @@ int main(int argc, char **argv)
     int iteracoes;
     int pronto = 1;
     char *mensagem;
+    MPI_Request request;
     MPI_Status status;
 
     MPI_Init(&argc, &argv);
@@ -57,11 +58,13 @@ int main(int argc, char **argv)
             MPI_Recv(&pronto, 1, MPI_INT, 1, TAG_PRONTO_IDA, MPI_COMM_WORLD, &status);
             MPI_Rsend(mensagem, bytes, MPI_BYTE, 1, TAG_IDA, MPI_COMM_WORLD);
 
+            MPI_Irecv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &request);
             MPI_Send(&pronto, 1, MPI_INT, 1, TAG_PRONTO_VOLTA, MPI_COMM_WORLD);
-            MPI_Recv(mensagem, bytes, MPI_BYTE, 1, TAG_VOLTA, MPI_COMM_WORLD, &status);
+            MPI_Wait(&request, &status);
         } else {
+            MPI_Irecv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &request);
             MPI_Send(&pronto, 1, MPI_INT, 0, TAG_PRONTO_IDA, MPI_COMM_WORLD);
-            MPI_Recv(mensagem, bytes, MPI_BYTE, 0, TAG_IDA, MPI_COMM_WORLD, &status);
+            MPI_Wait(&request, &status);
 
             MPI_Recv(&pronto, 1, MPI_INT, 0, TAG_PRONTO_VOLTA, MPI_COMM_WORLD, &status);
             MPI_Rsend(mensagem, bytes, MPI_BYTE, 0, TAG_VOLTA, MPI_COMM_WORLD);

@@ -396,3 +396,320 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 ```
+
+<!-- codigos-fonte-c-inicio -->
+## Codigos fonte C usados nos testes
+
+### `Tarefa-08/pi_rand_critical.c`
+
+```c
+/*
+ * Tarefa 8 - Versao 1: rand() + variavel privada + #pragma omp critical
+ *
+ * Cada thread acumula seus acertos em uma variavel local (privada).
+ * Ao final do laco paralelo, usa #pragma omp critical para somar o
+ * total local na variavel global 'count'.
+ *
+ * Usa rand(), que nao e thread-safe: em muitas implementacoes a funcao
+ * protege seu estado interno com um mutex global, o que provoca
+ * serializacao implicita entre threads e degrada o desempenho.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_rand_critical pi_rand_critical.c -lm
+ * Executar: ./pi_rand_critical [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) N = atol(argv[1]);
+
+    long count = 0;
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        long local_count = 0;
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand() / RAND_MAX;
+            double y = (double)rand() / RAND_MAX;
+            if (x * x + y * y <= 1.0)
+                local_count++;
+        }
+
+        #pragma omp critical
+        count += local_count;
+    }
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=rand_critical n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-08/pi_rand_vector.c`
+
+```c
+/*
+ * Tarefa 8 - Versao 2: rand() + vetor compartilhado (falso compartilhamento)
+ *
+ * Cada thread escreve seus acertos em uma posicao exclusiva do vetor
+ * 'hits[tid]'. Apos a regiao paralela, um laco serial soma os acertos.
+ *
+ * Problema de falso compartilhamento (false sharing):
+ *   Um cache line tipico tem 64 bytes. Como 'hits' e um array de long
+ *   (8 bytes cada), ate 8 posicoes vizinhas compartilham o mesmo cache
+ *   line. Quando uma thread modifica hits[tid], invalida a linha inteira
+ *   para as demais threads, forcando recargas constantes — mesmo que cada
+ *   thread acesse apenas a sua posicao.
+ *
+ * Usa rand(), que tambem serializa as threads internamente via mutex
+ * global do estado do gerador.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_rand_vector pi_rand_vector.c -lm
+ * Executar: ./pi_rand_vector [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#define MAX_THREADS 256
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) N = atol(argv[1]);
+
+    /* vetor compartilhado — posicoes adjacentes no mesmo cache line */
+    long hits[MAX_THREADS];
+    memset(hits, 0, sizeof(hits));
+
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand() / RAND_MAX;
+            double y = (double)rand() / RAND_MAX;
+            if (x * x + y * y <= 1.0)
+                hits[tid]++;   /* false sharing: mesmo cache line que hits[tid±1] */
+        }
+    }
+
+    /* acumulacao serial apos a regiao paralela */
+    long count = 0;
+    for (int t = 0; t < threads_used; t++)
+        count += hits[t];
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=rand_vector n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-08/pi_randr_critical.c`
+
+```c
+/*
+ * Tarefa 8 - Versao 3: rand_r() + variavel privada + #pragma omp critical
+ *
+ * Cada thread possui sua propria seed (privada), eliminando a disputa
+ * pelo estado global de rand(). O gerador rand_r() e reentrante e nao
+ * usa nenhum lock interno.
+ *
+ * Os acertos sao contados em uma variavel local por thread e acumulados
+ * na variavel global 'count' com #pragma omp critical ao final do laco.
+ *
+ * Comparado com a versao rand_critical, o ganho esperado vem da remocao
+ * do gargalo interno de rand(): as threads agora geram numeros de forma
+ * verdadeiramente paralela.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_critical pi_randr_critical.c -lm
+ * Executar: ./pi_randr_critical [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) N = atol(argv[1]);
+
+    long count       = 0;
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        /* seed unica por thread — sem compartilhamento do estado do RNG */
+        unsigned int seed = (unsigned int)(time(NULL)) ^ (unsigned int)(omp_get_thread_num() * 2654435761u);
+        long local_count  = 0;
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / RAND_MAX;
+            double y = (double)rand_r(&seed) / RAND_MAX;
+            if (x * x + y * y <= 1.0)
+                local_count++;
+        }
+
+        #pragma omp critical
+        count += local_count;
+    }
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=randr_critical n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+### `Tarefa-08/pi_randr_vector.c`
+
+```c
+/*
+ * Tarefa 8 - Versao 4: rand_r() + vetor compartilhado (falso compartilhamento)
+ *
+ * Combina o gerador reentrante rand_r() (sem lock interno) com a
+ * estrategia de armazenar os acertos em posicoes distintas de um vetor
+ * compartilhado 'hits[tid]'.
+ *
+ * O falso compartilhamento (false sharing) continua presente: posicoes
+ * vizinhas do vetor estao no mesmo cache line (64 bytes / 8 bytes por
+ * long = 8 posicoes por linha). Cada escrita em hits[tid] invalida a
+ * linha para as demais threads, gerando trafego desnecessario de
+ * coerencia de cache — mesmo sem nenhuma corrida de dados real.
+ *
+ * Diferenca em relacao a versao rand_vector:
+ *   - rand() foi substituido por rand_r(): o gargalo do mutex global
+ *     do RNG desaparece, tornando o efeito do false sharing mais
+ *     visivel no perfil de desempenho.
+ *
+ * Compilar: gcc -O2 -fopenmp -o pi_randr_vector pi_randr_vector.c -lm
+ * Executar: ./pi_randr_vector [N]
+ */
+
+#include <math.h>
+#include <omp.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+#define MAX_THREADS 256
+
+int main(int argc, char *argv[]) {
+    long N = 10000000L;
+    if (argc > 1) N = atol(argv[1]);
+
+    /* vetor compartilhado — false sharing entre posicoes adjacentes */
+    long hits[MAX_THREADS];
+    memset(hits, 0, sizeof(hits));
+
+    int threads_used = 0;
+
+    double t0 = omp_get_wtime();
+
+    #pragma omp parallel
+    {
+        int tid = omp_get_thread_num();
+
+        /* seed privada por thread */
+        unsigned int seed = (unsigned int)(time(NULL)) ^ (unsigned int)(tid * 2654435761u);
+
+        #pragma omp single
+        threads_used = omp_get_num_threads();
+
+        #pragma omp for schedule(static)
+        for (long i = 0; i < N; i++) {
+            double x = (double)rand_r(&seed) / RAND_MAX;
+            double y = (double)rand_r(&seed) / RAND_MAX;
+            if (x * x + y * y <= 1.0)
+                hits[tid]++;   /* false sharing: invalida o cache line vizinho */
+        }
+    }
+
+    /* acumulacao serial apos a regiao paralela */
+    long count = 0;
+    for (int t = 0; t < threads_used; t++)
+        count += hits[t];
+
+    double elapsed = omp_get_wtime() - t0;
+    double pi      = 4.0 * (double)count / (double)N;
+    double error   = fabs(pi - M_PI);
+
+    printf("CONFIG program=randr_vector n=%ld threads=%d\n", N, threads_used);
+    printf("RESULT pi=%.10f count=%ld total=%ld error=%.10f elapsed=%.6f\n",
+           pi, count, N, error, elapsed);
+
+    return 0;
+}
+```
+
+<!-- codigos-fonte-c-fim -->
+
+<!-- scripts-sbatch-npad-inicio -->
+## Scripts sbatch do NPAD
+
+Nao ha script `sbatch` do NPAD associado a esta tarefa no repositorio.
+<!-- scripts-sbatch-npad-fim -->

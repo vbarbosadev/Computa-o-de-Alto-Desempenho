@@ -22,6 +22,17 @@ def load_rows(path):
                 row[key] = int(row[key])
             for key in ["seq_time", "elapsed", "speedup", "efficiency", "checksum"]:
                 row[key] = float(row[key])
+            for key in [
+                "mpi_internal_speedup",
+                "tempo_rank0",
+                "tempo_max",
+                "scatter_x_max",
+                "scatter_a_max",
+                "compute_max",
+                "reduce_max",
+            ]:
+                if key in row and row[key] != "":
+                    row[key] = float(row[key])
             if "cols_per_process" in row:
                 row["cols_per_process"] = int(row["cols_per_process"])
             if "rows_per_process" in row:
@@ -40,7 +51,7 @@ def aggregate(rows):
         elapsed = [row["elapsed"] for row in values]
         speedups = [row["speedup"] for row in values]
         efficiencies = [row["efficiency"] for row in values]
-        summary.append({
+        item = {
             "version": key[0],
             "m": key[1],
             "n": key[2],
@@ -54,20 +65,58 @@ def aggregate(rows):
             "speedup": statistics.mean(speedups),
             "efficiency": statistics.mean(efficiencies),
             "checksum": values[0]["checksum"],
-        })
+        }
+        for timing_key in ["tempo_rank0", "tempo_max", "scatter_x_max", "scatter_a_max", "compute_max", "reduce_max"]:
+            timing_values = [row[timing_key] for row in values if timing_key in row and row[timing_key] != ""]
+            if timing_values:
+                item[timing_key] = statistics.mean(timing_values)
+        summary.append(item)
+
+    baselines = {
+        (row["version"], row["m"], row["n"]): row["mean"]
+        for row in summary
+        if row["processes"] == 1
+    }
+    for row in summary:
+        baseline = baselines.get((row["version"], row["m"], row["n"]))
+        row["mpi_internal_speedup"] = baseline / row["mean"] if baseline else None
     return summary
 
 
 def table(summary, label):
     lines = [
-        f"|Versao|M|N|Processos|{label}/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup|Eficiencia|Checksum|",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        f"|Versao|M|N|Processos|{label}/processo|Rodadas|Tempo seq (s)|Media MPI (s)|Speedup seq|Speedup MPI|Eficiencia seq|Checksum|",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for row in summary:
+        mpi_speedup = "-" if row["mpi_internal_speedup"] is None else f"{row['mpi_internal_speedup']:.2f}"
         lines.append(
             f"|{row['version']}|{row['m']}|{row['n']}|{row['processes']}|{row['parts_per_process']}|"
             f"{row['runs']}|{row['seq_time']:.6f}|{row['mean']:.6f}|"
-            f"{row['speedup']:.2f}|{row['efficiency']:.2f}|{row['checksum']:.2f}|"
+            f"{row['speedup']:.2f}|{mpi_speedup}|{row['efficiency']:.2f}|{row['checksum']:.2f}|"
+        )
+    return "\n".join(lines)
+
+
+def timing_table(summary):
+    timed = [row for row in summary if "tempo_max" in row]
+    if not timed:
+        return (
+            "As coletas existentes ainda estao no formato antigo e nao trazem tempos "
+            "parciais. Os codigos e o coletor foram atualizados para registrar esses "
+            "campos nas proximas execucoes locais ou no NPAD."
+        )
+
+    lines = [
+        "|Versao|M|N|Processos|Rank 0 (s)|Max ranks (s)|Scatter x (s)|Scatter A (s)|Compute (s)|Reduce (s)|",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+    for row in timed:
+        lines.append(
+            f"|{row['version']}|{row['m']}|{row['n']}|{row['processes']}|"
+            f"{row.get('tempo_rank0', 0.0):.6f}|{row.get('tempo_max', row['mean']):.6f}|"
+            f"{row.get('scatter_x_max', 0.0):.6f}|{row.get('scatter_a_max', 0.0):.6f}|"
+            f"{row.get('compute_max', 0.0):.6f}|{row.get('reduce_max', 0.0):.6f}|"
         )
     return "\n".join(lines)
 
@@ -122,6 +171,16 @@ def generate_report(rows, summary, t17_summary):
     processes = sorted({row["processes"] for row in rows})
     size_text = ", ".join(f"{m}x{n}" for m, n in sizes)
     time_images = "\n\n".join(f"![Tempo {m}x{n}](tempo_{m}x{n}.png)" for m, n in sizes)
+    timing_mode = (
+        "Nas coletas novas, `tempo=` nas versoes MPI representa o maior tempo medido "
+        "entre os ranks no trecho `Scatter x -> Scatter A -> calculo -> Reduce`. "
+        "CSV antigo sem a coluna `tempo_max` e interpretado de forma compativel."
+        if any("tempo_max" in row for row in rows)
+        else
+        "Este relatorio foi gerado a partir de CSV antigo, no qual `tempo=` era o "
+        "tempo reportado pelo rank 0. Os codigos atuais ja reportam tambem "
+        "`tempo_max` entre ranks e tempos por fase."
+    )
 
     report = f"""# Tarefa 18 - Produto matriz-vetor com tipos derivados MPI
 
@@ -137,6 +196,13 @@ Foram feitas duas versoes:
 - `cols_vector`: usa `MPI_Type_vector` para representar um bloco de colunas.
 - `cols_resized`: usa `MPI_Type_vector` e depois `MPI_Type_create_resized` para
   ajustar a extensao do tipo derivado.
+
+A versao `cols_resized` deve ser lida como a implementacao tecnicamente fiel ao
+enunciado para espalhar blocos de colunas diretamente a partir da matriz original
+em layout por linhas. A versao `cols_vector` foi mantida como contraste
+metodologico: como o `extent` natural do tipo vetorial nao corresponde ao avanco
+entre blocos de colunas consecutivos, ela usa no rank `0` um buffer artificial com
+lacunas, preparado fora do trecho medido.
 
 ## Funcoes MPI usadas
 
@@ -162,14 +228,24 @@ Foram feitas duas versoes:
 - Compilacao MPI: `mpicc -O3 -Wall -Wextra`
 - Medicao de tempo: `MPI_Wtime` nas versoes MPI e `gettimeofday` na versao
   sequencial da Tarefa 17
+- Metrica principal de speedup sequencial: tempo sequencial da Tarefa 17 dividido
+  pelo tempo MPI da versao avaliada
+- Speedup interno MPI: media com 1 processo da propria versao MPI dividida pela
+  media com `P` processos da mesma versao
 
 Os valores de `N` foram escolhidos divisiveis por `1`, `2` e `4`, pois a divisao por
 colunas usa `MPI_Scatter` simples. O checksum foi comparado com a versao sequencial
 para validar o resultado.
 
+{timing_mode}
+
 ## Resultados da Tarefa 18
 
 {table(summary, "Colunas")}
+
+## Tempos parciais MPI
+
+{timing_table(summary)}
 
 ## Comparacao com a Tarefa 17
 
@@ -204,8 +280,10 @@ o final do ultimo bloco, incluindo os espacos entre as linhas. Quando esse tipo 
 usado diretamente em `MPI_Scatter`, o MPI avanca de um processo para o proximo usando
 essa extensao. Por isso, o processo `0` precisa preparar um buffer com espacamento
 entre os blocos de cada processo. A comunicacao ainda usa o tipo derivado, mas ha
-custo extra de memoria e preparacao. Essa preparacao ocorre antes do trecho medido
-no script de testes, mas ainda e uma diferenca importante da implementacao.
+custo extra de memoria e preparacao. Essa preparacao ocorre antes do trecho medido,
+portanto os tempos de `cols_vector` nao incluem o custo de montar esse buffer
+expandido. Por esse motivo, ela nao deve ser usada como evidencia isolada de que o
+uso direto de `MPI_Type_vector` e equivalente a `MPI_Type_create_resized`.
 
 A versao `cols_resized` corrige esse problema. Depois de criar o tipo com
 `MPI_Type_vector`, `MPI_Type_create_resized` define a extensao como
@@ -231,8 +309,10 @@ Nos resultados medidos, `cols_vector` e `cols_resized` ficaram proximas. Isso oc
 porque as duas usam o mesmo padrao de comunicacao principal: `MPI_Scatter` para a
 matriz, `MPI_Scatter` para o segmento de `x` e `MPI_Reduce` para somar `y`. A
 diferenca principal entre elas esta na organizacao do buffer no processo `0`, nao no
-calculo local. A versao com `resized` e mais direta e representa melhor o layout real
-da matriz, mesmo quando o tempo medido fica parecido.
+calculo local. Como o custo de preparacao do buffer artificial de `cols_vector` fica
+fora da medicao, a comparacao de desempenho deve priorizar `cols_resized` como
+versao metodologicamente limpa e usar `cols_vector` apenas como demonstracao do
+problema de extensao do tipo derivado.
 
 Comparando com a Tarefa 17, os tempos ficaram na mesma ordem de grandeza. Em alguns
 casos com 2 e 4 processos, as versoes por colunas ficaram levemente mais rapidas que

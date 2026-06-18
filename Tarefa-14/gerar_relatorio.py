@@ -114,14 +114,16 @@ tempo e medido com `MPI_Wtime` durante varias trocas consecutivas.
 - `MPI_Bsend`: envio bloqueante com buffer anexado pelo usuario por `MPI_Buffer_attach`.
   A chamada depende de haver espaco no buffer fornecido para armazenar a mensagem.
 - `MPI_Rsend`: envio em modo ready. Ele so e correto se o recebimento correspondente
-  ja tiver sido iniciado. Nesta versao introdutoria, foram usadas mensagens simples
-  de controle com `MPI_Send` e `MPI_Recv` para indicar que o processo receptor esta
-  pronto para a troca.
+  ja tiver sido iniciado. Nesta versao, o receptor posta `MPI_Irecv` antes de avisar
+  o emissor; depois do aviso, o emissor chama `MPI_Rsend` e o receptor conclui a
+  operacao com `MPI_Wait`.
 - `MPI_Ssend`: envio bloqueante sincrono. A chamada so completa quando o processo
   receptor iniciou o recebimento correspondente, expondo melhor o custo de sincronizacao.
 
-Todos os programas usam `MPI_Recv` para receber a mensagem de ida e a resposta. O
-tempo e medido no processo 0, que participa de todas as trocas completas.
+As versoes `MPI_Send`, `MPI_Bsend` e `MPI_Ssend` usam `MPI_Recv` para receber a
+mensagem de ida e a resposta. A versao `MPI_Rsend` usa `MPI_Irecv` e `MPI_Wait` nos
+recebimentos que habilitam o envio em modo ready. O tempo e medido no processo 0, que
+participa de todas as trocas completas.
 
 ## Configuracao
 
@@ -133,8 +135,8 @@ tempo e medido no processo 0, que participa de todas as trocas completas.
 - Largura de banda efetiva: bytes enviados na ida e na volta divididos pelo tempo total
 
 O codigo foi mantido propositalmente simples, usando comunicacao ponto a ponto:
-`MPI_Send`, `MPI_Bsend`, `MPI_Rsend`, `MPI_Ssend`, `MPI_Recv` e `MPI_Wtime`. Nao foram
-usadas rotinas coletivas.
+`MPI_Send`, `MPI_Bsend`, `MPI_Rsend`, `MPI_Ssend`, `MPI_Recv`, `MPI_Irecv`,
+`MPI_Wait` e `MPI_Wtime`. Nao foram usadas rotinas coletivas.
 
 ## Resultados
 
@@ -186,9 +188,9 @@ banda efetiva se torna a metrica principal. Em `1 MB`, `MPI_Send`, `MPI_Rsend` e
 `15 GiB/s`, consistente com o custo adicional de copiar dados para o buffer anexado.
 
 O resultado de `MPI_Rsend` tambem e coerente: ele e pior nas mensagens pequenas por
-causa das mensagens de controle usadas para indicar que o receptor esta pronto, mas
-se aproxima das melhores bandas quando a mensagem e grande e esse overhead fica
-diluido.
+causa do `MPI_Irecv`, do `MPI_Wait` e das mensagens de controle usadas para garantir
+que o recebimento correspondente esteja postado, mas se aproxima das melhores bandas
+quando a mensagem e grande e esse overhead fica diluido.
 
 ## Conclusao
 

@@ -242,3 +242,119 @@ int main() {
     return 0;
 }
 ```
+
+<!-- codigos-fonte-c-inicio -->
+## Codigos fonte C usados nos testes
+
+### `Tarefa-05/primo_sequencial.c`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int is_prime(long int n) {
+    if (n <= 1) return 0;
+    for (int i = 2; i * i <= n; i++) {
+        if (n % i == 0) return 0;
+    }
+    return 1;
+}
+
+#define N 10000000
+
+int main() {
+
+    double start_time = omp_get_wtime();
+
+    int count = 0;
+    for (int i = 2; i <= N; i++) {
+        if (is_prime(i)) {
+            count++;
+        }
+    }
+    double end_time = omp_get_wtime();
+    printf("Total de numeros primos entre 1 e %d: %d\n", N, count);
+    printf("Tempo de execucao: %f segundos\n", end_time - start_time);
+    return 0;
+}
+```
+
+### `Tarefa-05/primos_parallel.c`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int is_prime(long int n) {
+    if (n <= 1) return 0;
+    for (int i = 2; i * i <= n; i++) {
+        if (n % i == 0) return 0;
+    }
+    return 1;
+}
+
+#define N 10000000
+
+int main() {
+
+    double start_time = omp_get_wtime();
+
+    int count = 0;
+    #pragma omp parallel for
+    for (int i = 2; i <= N; i++) {
+        if (is_prime(i)) {
+            count++;
+        }
+    }
+    double end_time = omp_get_wtime();
+    printf("Total de numeros primos entre 1 e %d: %d\n", N, count);
+    printf("Tempo de execucao: %f segundos\n", end_time - start_time);
+    return 0;
+}
+```
+
+### `Tarefa-05/primos_parallel_atomic.c`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <omp.h>
+
+int is_prime(long int n) {
+    if (n <= 1) return 0;
+    for (int i = 2; i * i <= n; i++) {
+        if (n % i == 0) return 0;
+    }
+    return 1;
+}
+
+#define N 10000000
+
+int main() {
+
+    double start_time = omp_get_wtime();
+
+    int count = 0;
+    #pragma omp parallel for
+    for (int i = 2; i <= N; i++) {
+        if (is_prime(i)) {
+            #pragma omp atomic
+            count++;
+        }
+    }
+    double end_time = omp_get_wtime();
+    printf("Total de numeros primos entre 1 e %d: %d\n", N, count);
+    printf("Tempo de execucao: %f segundos\n", end_time - start_time);
+    return 0;
+}
+```
+
+<!-- codigos-fonte-c-fim -->
+
+<!-- scripts-sbatch-npad-inicio -->
+## Scripts sbatch do NPAD
+
+Nao ha script `sbatch` do NPAD associado a esta tarefa no repositorio.
+<!-- scripts-sbatch-npad-fim -->
