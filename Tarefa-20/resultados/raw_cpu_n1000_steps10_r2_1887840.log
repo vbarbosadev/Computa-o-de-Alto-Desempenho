@@ -1,0 +1,26 @@
+
+ MMS heat equation
+
+--------------------
+Problem input
+
+ Grid size: 1000 x 1000
+ Cell width: 9.990010E-01
+ Grid length: 1000.000000 x 1000.000000
+
+ Alpha: 1.000000E-01
+
+ Steps: 10
+ Total time: 5.000000E-01
+ Time step: 5.000000E-02
+--------------------
+Stability
+
+ r value: 0.005010
+--------------------
+Results
+
+Error (L2norm): 3.808794E-10
+Solve time (s): 0.018540
+Total time (s): 0.036513
+--------------------

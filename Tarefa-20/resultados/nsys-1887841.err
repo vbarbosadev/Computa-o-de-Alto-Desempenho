@@ -1,0 +1,8 @@
+SKIPPED: /home/vbvmergulho/CAD/AULA-01-P-GPU/tarefa-20/resultados/perfis/nsys_heat_gpu_n1000_s10_1887841.sqlite does not contain NV Tools Extension (NVTX) data.
+
+WARNING: Existing SQLite export found: resultados/perfis/nsys_heat_gpu_n1000_s10_1887841.sqlite
+         File is older than input file: resultados/perfis/nsys_heat_gpu_n1000_s10_1887841.nsys-rep
+         Use --force-export=true to update export file.
+
+usage: nsys stats [<args>] <input-file>
+Try 'nsys stats --help' for more information.
